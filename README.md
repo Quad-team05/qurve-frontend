@@ -25,6 +25,18 @@ npx expo start
 
 개발을 시작하려면 `app` 디렉토리 안의 파일을 수정하면 됩니다. 이 프로젝트는 파일 기반 라우팅을 사용합니다.
 
+## 팀 협업 기본 스크립트
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run ci
+```
+
+- 커밋 시 `husky + lint-staged`가 변경 파일에 대해 `prettier`와 `eslint`를 자동 실행합니다.
+- CI는 PR/`main` push 시 lint, typecheck, test를 자동 검증합니다.
+
 ## 개발 환경 세팅
 
 ### 1. 필수 설치 항목
@@ -229,4 +241,3 @@ npx expo install expo-secure-store expo-notifications
 - 민감한 API 키는 프론트엔드에 직접 넣지 않고 백엔드에서 관리하는 것을 권장합니다.
 - Expo 프로젝트에서 Tailwind 스타일링은 일반 웹 방식 대신 `NativeWind`를 사용합니다.
 - 프로젝트 생성은 Expo로 하고, Android Studio는 에뮬레이터 및 SDK 관리 용도로 사용하는 방식이 일반적입니다.
-
