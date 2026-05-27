@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import Text from '@/components/ui/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TopBarProps = {
@@ -44,7 +45,7 @@ export default function TopBar({
           </Pressable>
         ) : null}
 
-        <Text className="text-[16px] font-bold text-black">{title}</Text>
+        <Text className="font-bold text-[16px] text-black">{title}</Text>
 
         <View className="absolute right-0 h-10 w-10 items-center justify-center"></View>
       </View>
