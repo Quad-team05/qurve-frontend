@@ -3,11 +3,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function HomeScreen() {
   const menus: { label: string; href: Href }[] = [
-    { label: '로그인', href: '/(app)/auth/login' },
-    { label: '회원가입', href: '/(app)/auth/signup' },
-    { label: '메인', href: '/' },
-    { label: '학습', href: '/(app)/learning/study' },
-    { label: '마이페이지', href: '/(app)/mypage' },
+    { label: '홈', href: '/(tabs)' },
+    { label: '학습', href: '/(tabs)/study' },
+    { label: '리포트', href: '/(tabs)/progress' },
+    { label: '채팅', href: '/(tabs)/chat' },
+    { label: '마이페이지', href: '/(tabs)/mypage' },
   ];
 
   return (
