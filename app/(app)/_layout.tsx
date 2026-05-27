@@ -2,15 +2,7 @@ import { Stack } from 'expo-router';
 
 export default function AppRoutesLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerShown: true,
-        headerStyle: { backgroundColor: '#ffffff' },
-        headerTintColor: '#111827',
-        headerTitleStyle: { fontSize: 18, fontWeight: '700' },
-        headerShadowVisible: false,
-      }}
-    >
+    <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="auth/login" options={{ title: '로그인' }} />
       <Stack.Screen name="auth/signup" options={{ title: '회원가입' }} />
       <Stack.Screen name="auth/find-id" options={{ title: '아이디 찾기' }} />
