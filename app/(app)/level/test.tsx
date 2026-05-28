@@ -64,6 +64,14 @@ const QUESTIONS: Question[] = [
   },
 ];
 
+const questionCardShadowStyle = {
+  shadowColor: '#000000',
+  shadowOpacity: 0.04,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 1 },
+  elevation: 1,
+} as const;
+
 export default function LevelTestPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedByQuestion, setSelectedByQuestion] = useState<(number | null)[]>(
@@ -106,14 +114,12 @@ export default function LevelTestPage() {
       <View className="flex-1 px-4 pt-3">
         <View className="mb-3">
           <View className="mb-2 flex-row items-center justify-between px-1">
-            <Text className="w-1/3 text-center text-xs font-semibold text-[#A6A092]">설문</Text>
-            <Text className="w-1/3 text-center text-xs font-semibold text-[#6F7486]">
-              레벨테스트
-            </Text>
+            <Text className="w-1/3 text-center text-xs font-semibold text-gray">설문</Text>
+            <Text className="w-1/3 text-center text-xs font-semibold text-gray">레벨테스트</Text>
             <Text className="w-1/3 text-center text-xs font-semibold text-[#A6A092]">결과</Text>
           </View>
           <View className="h-[3px] w-full bg-[#D8D2C7]">
-            <View className="ml-[33%] h-[3px] w-1/3 bg-[#6F7486]" />
+            <View className="h-[3px] w-2/3 bg-gray" />
           </View>
         </View>
 
@@ -132,7 +138,10 @@ export default function LevelTestPage() {
           showsVerticalScrollIndicator={false}
         >
           <View className="mx-auto h-[10px] w-[50px] rounded-[1px] bg-[#F9C8D8]" />
-          <View className="mb-4 rounded-sm border border-border bg-white px-4 pb-4 pt-5">
+          <View
+            className="mb-4 rounded-sm border border-border bg-white px-4 pb-4 pt-5"
+            style={questionCardShadowStyle}
+          >
             <Text className="font-bold text-sm text-[#A09080]">Q{currentQuestionIndex + 1}.</Text>
             <Text className="mt-2 font-regular text-lg text-black">{currentQuestion.prompt}</Text>
 
