@@ -1,4 +1,5 @@
 import TopBar from '@/components/ui/TopBar';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,9 +13,10 @@ const questionThreeOptions = [
 ];
 
 export default function LevelTestSurveyPage() {
-  const [selectedQ1, setSelectedQ1] = useState<number | null>(0);
+  const [selectedQ1, setSelectedQ1] = useState<number | null>(null);
   const [selectedQ2, setSelectedQ2] = useState<number | null>(null);
   const [selectedQ3, setSelectedQ3] = useState<number | null>(null);
+  const canStartTest = selectedQ1 !== null && selectedQ2 !== null && selectedQ3 !== null;
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -130,7 +132,14 @@ export default function LevelTestSurveyPage() {
           );
         })}
 
-        <Pressable className="mt-3 h-[52px] items-center justify-center rounded-xl bg-[#2A2018]">
+        <Pressable
+          className={`mt-3 h-[52px] items-center justify-center rounded-xl ${canStartTest ? 'bg-[#2A2018]' : 'bg-[#B9B2A7]'}`}
+          onPress={() => {
+            if (!canStartTest) return;
+            router.push('/(app)/level/test');
+          }}
+          disabled={!canStartTest}
+        >
           <Text className="text-base font-medium text-white">레벨 테스트 시작하기</Text>
         </Pressable>
       </ScrollView>
