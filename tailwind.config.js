@@ -10,6 +10,8 @@ module.exports = {
         border: '#E0D8C8',
         'btn-dark': '#2A2018',
         'text-gray': '#C0B8B0',
+        'text-brown': '#A09080',
+        gray: '#6B7280',
       },
       fontFamily: {
         regular: ['42dotSans-Regular'],

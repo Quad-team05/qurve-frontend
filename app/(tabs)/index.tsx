@@ -1,6 +1,6 @@
+import Text from '@/components/ui/AppText';
 import { type Href, router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Text from '@/components/ui/AppText';
 
 export default function HomeScreen() {
   const menus: { label: string; href: Href }[] = [
@@ -8,7 +8,7 @@ export default function HomeScreen() {
     { label: '아이디 찾기', href: '/(app)/auth/find-id' },
     { label: '비밀번호 찾기', href: '/(app)/auth/find-password' },
     { label: '로그인', href: '/(app)/auth/login' },
-
+    { label: '레벨 테스트', href: '/(app)/level/test-survey' },
   ];
 
   return (
