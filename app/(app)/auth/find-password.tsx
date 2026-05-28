@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-
 const cardShadowStyle = {
   shadowColor: '#000000',
   shadowOpacity: 0.04,
@@ -12,7 +11,7 @@ const cardShadowStyle = {
   elevation: 1,
 } as const;
 
-export default function FindIdPage() {
+export default function FindPasswordPage() {
   return (
     <SafeAreaView className="flex-1 bg-bg">
       <TopBar title="비밀번호 찾기" />
