@@ -7,4 +7,13 @@ module.exports = defineConfig([
   {
     ignores: ['dist/*'],
   },
+  {
+    settings: {
+      'import/resolver': {
+        node: {
+          extensions: ['.js', '.jsx', '.ts', '.tsx', '.d.ts', '.json', '.png', '.svg'],
+        },
+      },
+    },
+  },
 ]);
