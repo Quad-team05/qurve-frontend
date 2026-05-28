@@ -10,7 +10,7 @@ import StudyIcon from '@/assets/icons/study.svg';
 
 type TabItem = {
   routeName: string;
-  Icon: ComponentType<{ width?: number; height?: number; color?: string }> | number;
+  Icon: ComponentType<{ width?: number; height?: number }> | number;
 };
 
 const TAB_ITEMS: TabItem[] = [
@@ -22,13 +22,23 @@ const TAB_ITEMS: TabItem[] = [
 ];
 
 export default function NavigationBar({ state, navigation }: BottomTabBarProps) {
-  const renderIcon = (icon: TabItem['Icon'], color: string) => {
+  const renderIcon = (icon: TabItem['Icon'], isFocused: boolean) => {
+    const iconOpacity = isFocused ? 1 : 0.4;
+
     if (typeof icon === 'number') {
-      return <Image source={icon} style={{ width: 24, height: 24, tintColor: color }} />;
+      return (
+        <View style={{ opacity: iconOpacity }}>
+          <Image source={icon} style={{ width: 24, height: 24 }} />
+        </View>
+      );
     }
 
     const SvgIcon = icon;
-    return <SvgIcon width={24} height={24} color={color} />;
+    return (
+      <View style={{ opacity: iconOpacity }}>
+        <SvgIcon width={24} height={24} />
+      </View>
+    );
   };
 
   return (
@@ -37,7 +47,6 @@ export default function NavigationBar({ state, navigation }: BottomTabBarProps) 
         {TAB_ITEMS.map((item) => {
           const routeIndex = state.routes.findIndex((route) => route.name === item.routeName);
           const isFocused = routeIndex === state.index;
-          const iconColor = isFocused ? '#6b7280' : '#9b978f';
 
           return (
             <Pressable
@@ -45,10 +54,10 @@ export default function NavigationBar({ state, navigation }: BottomTabBarProps) 
               className="flex-1 items-center justify-end"
               onPress={() => navigation.navigate(item.routeName)}
             >
-              {renderIcon(item.Icon, iconColor)}
+              {renderIcon(item.Icon, isFocused)}
               <View className="mt-1 h-[7px] items-center justify-start">
                 <View
-                  className={`h-[3px] w-6 rounded-full ${isFocused ? 'bg-[#6B7280]' : 'bg-transparent'}`}
+                  className={`h-[3px] w-6 rounded-full ${isFocused ? 'bg-[#6B7280]' : 'bg-[#CEC8BE]'}`}
                 />
               </View>
             </Pressable>
