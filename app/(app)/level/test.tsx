@@ -1,6 +1,6 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -73,6 +73,7 @@ const questionCardShadowStyle = {
 } as const;
 
 export default function LevelTestPage() {
+  const router = useRouter();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedByQuestion, setSelectedByQuestion] = useState<(number | null)[]>(
     Array.from({ length: QUESTIONS.length }, () => null),
@@ -96,7 +97,10 @@ export default function LevelTestPage() {
   };
 
   const handleNext = () => {
-    if (currentQuestionIndex === QUESTIONS.length - 1) return;
+    if (currentQuestionIndex === QUESTIONS.length - 1) {
+      router.push('/(app)/level/assign');
+      return;
+    }
     setCurrentQuestionIndex((prev) => prev + 1);
   };
 
@@ -168,8 +172,8 @@ export default function LevelTestPage() {
           </View>
         </ScrollView>
 
-        <View className="pb-4">
-          <Text className="mb-[10px] text-sm font-semibold text-[#8C877D]">
+        <View className="pb-[18px]">
+          <Text className="pb-[10px] text-sm font-semibold text-[#8C877D]">
             {currentQuestionIndex + 1} / {QUESTIONS.length}
           </Text>
           <View className="mb-5 h-[3px] w-full bg-[#E0D8C8]">
@@ -178,20 +182,19 @@ export default function LevelTestPage() {
 
           <View className="h-px w-full border-t border-dashed border-border" />
 
-          <View className="mt-4 flex-row gap-11">
+          <View className="mt-[18px] flex-row gap-11">
             <Pressable
-              className={`h-[52px] flex-1 items-center justify-center rounded-xl border ${currentQuestionIndex === 0 ? 'border-[#D8D2C7] bg-[#F4F2EE]' : 'border-border bg-white'}`}
+              className={`px-25 h-[43px] flex-1 items-center justify-center rounded-xl border py-3 ${currentQuestionIndex === 0 ? 'border-[#D8D2C7] bg-[#F4F2EE]' : 'border-border bg-white'}`}
               onPress={handlePrev}
               disabled={currentQuestionIndex === 0}
             >
-              <Text className="text-sm font-semibold text-black">이전</Text>
+              <Text className="font-old text-sm text-black">이전</Text>
             </Pressable>
             <Pressable
-              className={`h-[52px] flex-1 items-center justify-center rounded-xl ${currentQuestionIndex === QUESTIONS.length - 1 ? 'bg-[#B9B2A7]' : 'bg-btn-dark'}`}
+              className="px-25 h-[43px] flex-1 items-center justify-center rounded-xl bg-btn-dark py-3"
               onPress={handleNext}
-              disabled={currentQuestionIndex === QUESTIONS.length - 1}
             >
-              <Text className="text-sm font-semibold text-white">다음</Text>
+              <Text className="font-bold text-sm text-white">다음</Text>
             </Pressable>
           </View>
         </View>
