@@ -9,6 +9,12 @@ module.exports = {
         'bg-strong': '#EDE8DE',
         border: '#E0D8C8',
         'btn-dark': '#2A2018',
+        'text-gray': '#C0B8B0',
+      },
+      fontFamily: {
+        regular: ['42dotSans-Regular'],
+        semoBold: ['42dotSans-Medium'],
+        bold: ['42dotSans-Bold'],
       },
     },
   },
