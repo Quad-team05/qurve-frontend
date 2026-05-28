@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 type TopBarProps = {
@@ -32,7 +31,8 @@ export default function TopBar({
   };
 
   return (
-    <View className="border-b border-border bg-bg px-4 pb-3 pt-2">
+    <View className="border-b border-border bg-bg px-4 pb-3 pt-0">
+
       <View className="relative h-12 items-center justify-center">
         {showBackButton ? (
           <Pressable
