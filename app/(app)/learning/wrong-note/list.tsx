@@ -1,5 +1,6 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Calendar, type DateData, LocaleConfig } from 'react-native-calendars';
@@ -111,6 +112,7 @@ const calendarTheme = {
 } as any;
 
 export default function WrongNoteListPage() {
+  const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState('2026-06-01');
   const [selectedDate, setSelectedDate] = useState('2026-06-02');
 
@@ -203,10 +205,11 @@ export default function WrongNoteListPage() {
         <Text className="py-3 text-xs text-text-brown">오답노트 목록</Text>
 
         {CARD_ITEMS.map((item) => (
-          <View
+          <Pressable
             key={item.id}
             className="mb-4 rounded-sm border border-border bg-white px-4 py-4"
             style={noteCardShadowStyle}
+            onPress={() => router.push('/(app)/learning/wrong-note/detail')}
           >
             <Text className="font-bold text-xl text-black">{item.title}</Text>
             <Text className="mt-1 text-sm font-semibold text-text-brown">
@@ -216,10 +219,10 @@ export default function WrongNoteListPage() {
               복습일: {item.reviewDate}
             </Text>
 
-            <Pressable className="mt-5 self-end">
+            <View className="mt-5 self-end">
               <Text className="text-sm font-semibold text-text-gray">문제보기 →</Text>
-            </Pressable>
-          </View>
+            </View>
+          </Pressable>
         ))}
       </ScrollView>
     </SafeAreaView>
