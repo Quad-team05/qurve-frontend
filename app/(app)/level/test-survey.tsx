@@ -13,10 +13,12 @@ const questionThreeOptions = [
 ];
 
 export default function LevelTestSurveyPage() {
+  const totalQuestions = 2;
   const [selectedQ1, setSelectedQ1] = useState<number | null>(null);
   const [selectedQ2, setSelectedQ2] = useState<number | null>(null);
-  const [selectedQ3, setSelectedQ3] = useState<number | null>(null);
-  const canStartTest = selectedQ1 !== null && selectedQ2 !== null && selectedQ3 !== null;
+  const answeredCount = [selectedQ1, selectedQ2].filter((answer) => answer !== null).length;
+  const progressPercent = (answeredCount / totalQuestions) * 100;
+  const canStartTest = answeredCount === totalQuestions;
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -49,17 +51,19 @@ export default function LevelTestSurveyPage() {
               <Text className="mt-[2px] font-bold text-base text-gray">
                 간단한 설문을 진행할게요.
               </Text>
-              <Text className="mb-[14px] mt-1 text-xs font-medium text-text-brown">
-                3가지 질문으로 시작해요
+              <Text className="mb-[14px] mt-1 text-xs font-medium text-gray">
+                2가지 질문으로 시작해요
               </Text>
             </View>
           </View>
 
           <View className="flex-row items-center justify-between">
             <View className="mr-3 h-[3px] flex-1 bg-white">
-              <View className="h-[3px] w-1/3 bg-[#6F7486]" />
+              <View className="h-[3px] bg-[#059669]" style={{ width: `${progressPercent}%` }} />
             </View>
-            <Text className="text-sm font-semibold text-[#A09A8D]">1/3</Text>
+            <Text className="text-sm font-semibold text-[#A09A8D]">
+              {answeredCount}/{totalQuestions}
+            </Text>
           </View>
         </View>
 
@@ -97,29 +101,6 @@ export default function LevelTestSurveyPage() {
             <Pressable
               key={`q2-${option}`}
               onPress={() => setSelectedQ2(idx)}
-              className={`mb-[10px] flex-row items-center rounded-sm border px-3 py-4 ${selected ? 'border-[#C8E0D6] bg-[#F2F9EE]' : 'border-border bg-white'}`}
-            >
-              <View
-                className={`mr-2 h-[18px] w-[18px] items-center justify-center rounded-full border ${selected ? 'border-border' : 'border-[#E4E4E4]'}`}
-              >
-                {selected ? <View className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> : null}
-              </View>
-              <Text className="font-bold text-sm text-gray">{option}</Text>
-            </Pressable>
-          );
-        })}
-
-        <Text className="mb-[10px] mt-1 text-sm font-semibold text-black">
-          <Text className="text-sm text-gray">Q3 </Text>
-          일본어로 말할 수 있나요?
-        </Text>
-
-        {questionThreeOptions.map((option, idx) => {
-          const selected = idx === selectedQ3;
-          return (
-            <Pressable
-              key={`q3-${option}`}
-              onPress={() => setSelectedQ3(idx)}
               className={`mb-[10px] flex-row items-center rounded-sm border px-3 py-4 ${selected ? 'border-[#C8E0D6] bg-[#F2F9EE]' : 'border-border bg-white'}`}
             >
               <View
