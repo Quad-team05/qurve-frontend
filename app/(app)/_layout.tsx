@@ -16,6 +16,7 @@ export default function AppRoutesLayout() {
       <Stack.Screen name="learning/problems/today" options={{ title: '오늘의 학습' }} />
       <Stack.Screen name="learning/problems/solve" options={{ title: '문제 풀기' }} />
       <Stack.Screen name="learning/problems/result" options={{ title: '학습 결과' }} />
+      <Stack.Screen name="learning/problems/review" options={{ title: '정답 해설' }} />
       <Stack.Screen name="learning/wrong-note/list" options={{ title: '오답노트 목록' }} />
       <Stack.Screen name="learning/wrong-note/detail" options={{ title: '오답노트 문제 보기' }} />
       <Stack.Screen name="learning/vocab/list" options={{ title: '단어장 목록' }} />
