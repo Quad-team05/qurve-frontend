@@ -1,5 +1,6 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -62,6 +63,8 @@ const WRONG_NOTE_QUESTIONS: WrongNoteQuestion[] = [
   },
 ];
 
+const UNDERLINED_WORDS = ['新聞', '図書館', '映画', '料理', '駅'] as const;
+
 const questionCardShadowStyle = {
   shadowColor: '#000000',
   shadowOpacity: 0.04,
@@ -71,9 +74,11 @@ const questionCardShadowStyle = {
 } as const;
 
 export default function WrongNoteDetailPage() {
+  const router = useRouter();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   const currentQuestion = WRONG_NOTE_QUESTIONS[currentQuestionIndex];
+  const underlinedWord = UNDERLINED_WORDS[currentQuestionIndex] ?? '';
   const progressPercent = ((currentQuestionIndex + 1) / WRONG_NOTE_QUESTIONS.length) * 100;
 
   const handlePrev = () => {
@@ -82,8 +87,28 @@ export default function WrongNoteDetailPage() {
   };
 
   const handleNext = () => {
-    if (currentQuestionIndex === WRONG_NOTE_QUESTIONS.length - 1) return;
+    if (currentQuestionIndex === WRONG_NOTE_QUESTIONS.length - 1) {
+      router.push('/(tabs)/study');
+      return;
+    }
     setCurrentQuestionIndex((prev) => prev + 1);
+  };
+
+  const renderSentence = (sentence: string, word: string) => {
+    if (!word || !sentence.includes(word)) {
+      return <Text className="mb-6 mt-5 font-regular text-lg text-black">{sentence}</Text>;
+    }
+
+    const [before, ...rest] = sentence.split(word);
+    const after = rest.join(word);
+
+    return (
+      <Text className="mb-6 mt-5 font-regular text-lg text-black">
+        {before}
+        <Text className="font-regular text-lg text-black underline">{word}</Text>
+        {after}
+      </Text>
+    );
   };
 
   return (
@@ -113,9 +138,7 @@ export default function WrongNoteDetailPage() {
           >
             <Text className="font-bold text-sm text-[#A09080]">Q{currentQuestionIndex + 1}.</Text>
             <Text className="mt-2 font-regular text-lg text-black">{currentQuestion.prompt}</Text>
-            <Text className="mb-6 mt-5 font-regular text-lg text-black">
-              {currentQuestion.sentence}
-            </Text>
+            {renderSentence(currentQuestion.sentence, underlinedWord)}
 
             {currentQuestion.options.map((option, idx) => {
               const selected = idx === currentQuestion.selectedIndex;
@@ -155,9 +178,9 @@ export default function WrongNoteDetailPage() {
             </View>
           </View>
 
-          <Pressable className="self-end rounded-xl border border-border bg-white px-5 py-2">
-            <Text className="text-sm font-semibold text-[#2A2018]">북마크 ☆</Text>
-          </Pressable>
+          <View className="self-end rounded-xl border border-border bg-white px-5 py-2">
+            <Text className="text-sm font-semibold text-[#2A2018]">북마크 ★</Text>
+          </View>
         </ScrollView>
 
         <View className="pb-[18px]">
@@ -172,11 +195,14 @@ export default function WrongNoteDetailPage() {
               <Text className="font-old text-sm text-black">이전</Text>
             </Pressable>
             <Pressable
-              className={`px-25 h-[43px] flex-1 items-center justify-center rounded-xl py-3 ${currentQuestionIndex === WRONG_NOTE_QUESTIONS.length - 1 ? 'bg-[#B9B2A7]' : 'bg-btn-dark'}`}
+              className="px-25 h-[43px] flex-1 items-center justify-center rounded-xl bg-btn-dark py-3"
               onPress={handleNext}
-              disabled={currentQuestionIndex === WRONG_NOTE_QUESTIONS.length - 1}
             >
-              <Text className="font-bold text-sm text-white">다음</Text>
+              <Text className="font-bold text-sm text-white">
+                {currentQuestionIndex === WRONG_NOTE_QUESTIONS.length - 1
+                  ? '학습 종료하기'
+                  : '다음'}
+              </Text>
             </Pressable>
           </View>
         </View>

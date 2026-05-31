@@ -64,6 +64,19 @@ const QUESTIONS: Question[] = [
   },
 ];
 
+const UNDERLINED_WORDS = [
+  '新聞',
+  '図書館',
+  '映画',
+  '料理',
+  '駅',
+  '質問',
+  '買い物',
+  '電車',
+  '朝ご飯',
+  '病院',
+] as const;
+
 const questionCardShadowStyle = {
   shadowColor: '#000000',
   shadowOpacity: 0.04,
@@ -80,6 +93,7 @@ export default function LevelTestPage() {
   );
 
   const currentQuestion = QUESTIONS[currentQuestionIndex];
+  const underlinedWord = UNDERLINED_WORDS[currentQuestionIndex] ?? '';
   const selectedIndex = selectedByQuestion[currentQuestionIndex];
   const progressPercent = ((currentQuestionIndex + 1) / QUESTIONS.length) * 100;
 
@@ -110,6 +124,23 @@ export default function LevelTestPage() {
       setSelectedByQuestion(Array.from({ length: QUESTIONS.length }, () => null));
     }, []),
   );
+
+  const renderSentence = (sentence: string, word: string) => {
+    if (!word || !sentence.includes(word)) {
+      return <Text className="mb-6 mt-5 font-regular text-lg text-black">{sentence}</Text>;
+    }
+
+    const [before, ...rest] = sentence.split(word);
+    const after = rest.join(word);
+
+    return (
+      <Text className="mb-6 mt-5 font-regular text-lg text-black">
+        {before}
+        <Text className="font-regular text-lg text-black underline">{word}</Text>
+        {after}
+      </Text>
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -149,9 +180,7 @@ export default function LevelTestPage() {
             <Text className="font-bold text-sm text-[#A09080]">Q{currentQuestionIndex + 1}.</Text>
             <Text className="mt-2 font-regular text-lg text-black">{currentQuestion.prompt}</Text>
 
-            <Text className="mb-6 mt-5 font-regular text-lg text-black">
-              {currentQuestion.sentence}
-            </Text>
+            {renderSentence(currentQuestion.sentence, underlinedWord)}
 
             {currentQuestion.options.map((option, idx) => {
               const selected = idx === selectedIndex;

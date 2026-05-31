@@ -6,6 +6,29 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { parseAnswersParam, PROBLEM_QUESTIONS, TOTAL_PROBLEM_COUNT } from './questionData';
 
+const UNDERLINED_WORDS = [
+  '新聞',
+  '図書館',
+  '映画',
+  '料理',
+  '駅',
+  '質問',
+  '買い物',
+  '電車',
+  '朝ご飯',
+  '病院',
+  '辞書',
+  '練習',
+  '空港',
+  '天気',
+  '音楽',
+  '旅行',
+  '教室',
+  '昼ご飯',
+  '説明',
+  '借りました',
+] as const;
+
 const questionCardShadowStyle = {
   shadowColor: '#000000',
   shadowOpacity: 0.04,
@@ -20,8 +43,12 @@ export default function ReviewProblemPage() {
   const parsedAnswers = useMemo(() => parseAnswersParam(answers), [answers]);
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [bookmarkedByQuestion, setBookmarkedByQuestion] = useState<boolean[]>(
+    Array.from({ length: TOTAL_PROBLEM_COUNT }, () => false),
+  );
 
   const currentQuestion = PROBLEM_QUESTIONS[currentQuestionIndex];
+  const underlinedWord = UNDERLINED_WORDS[currentQuestionIndex] ?? '';
   const selectedIndex = parsedAnswers[currentQuestionIndex];
   const progressPercent = ((currentQuestionIndex + 1) / TOTAL_PROBLEM_COUNT) * 100;
 
@@ -36,6 +63,31 @@ export default function ReviewProblemPage() {
       return;
     }
     setCurrentQuestionIndex((prev) => prev + 1);
+  };
+
+  const handleToggleBookmark = () => {
+    setBookmarkedByQuestion((prev) => {
+      const next = [...prev];
+      next[currentQuestionIndex] = !next[currentQuestionIndex];
+      return next;
+    });
+  };
+
+  const renderSentence = (sentence: string, word: string) => {
+    if (!word || !sentence.includes(word)) {
+      return <Text className="mb-6 mt-5 font-regular text-lg text-black">{sentence}</Text>;
+    }
+
+    const [before, ...rest] = sentence.split(word);
+    const after = rest.join(word);
+
+    return (
+      <Text className="mb-6 mt-5 font-regular text-lg text-black">
+        {before}
+        <Text className="font-regular text-lg text-black underline">{word}</Text>
+        {after}
+      </Text>
+    );
   };
 
   return (
@@ -65,9 +117,7 @@ export default function ReviewProblemPage() {
           >
             <Text className="font-bold text-sm text-[#A09080]">Q{currentQuestionIndex + 1}.</Text>
             <Text className="mt-2 font-regular text-lg text-black">{currentQuestion.prompt}</Text>
-            <Text className="mb-6 mt-5 font-regular text-lg text-black">
-              {currentQuestion.sentence}
-            </Text>
+            {renderSentence(currentQuestion.sentence, underlinedWord)}
 
             {currentQuestion.options.map((option, idx) => {
               const selected = idx === selectedIndex;
@@ -107,8 +157,13 @@ export default function ReviewProblemPage() {
             </View>
           </View>
 
-          <Pressable className="self-end rounded-xl border border-border bg-white px-5 py-2">
-            <Text className="text-sm font-semibold text-[#2A2018]">북마크 ☆</Text>
+          <Pressable
+            className="self-end rounded-xl border border-border bg-white px-5 py-2"
+            onPress={handleToggleBookmark}
+          >
+            <Text className="text-sm font-semibold text-[#2A2018]">
+              북마크 {bookmarkedByQuestion[currentQuestionIndex] ? '★' : '☆'}
+            </Text>
           </Pressable>
         </ScrollView>
 

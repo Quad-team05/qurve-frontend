@@ -222,15 +222,6 @@ export default function StudyPage() {
             </View>
           </Pressable>
         </View>
-
-        <Pressable
-          className="rounded-sm border border-border bg-white p-4"
-          onPress={() => moveTo('/(app)/learning/problems/today')}
-        >
-          <Text className="mb-1 font-regular text-xs text-text-brown">나의 단어장</Text>
-          <Text className="font-bold text-lg text-btn-dark">북마크한 단어</Text>
-          <Text className="mt-2 self-end font-bold text-sm text-text-brown">학습하기 →</Text>
-        </Pressable>
       </ScrollView>
 
       <GoalModal
