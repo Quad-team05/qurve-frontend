@@ -1,10 +1,10 @@
 import { View } from 'react-native';
 import Text from '@/components/ui/AppText';
 
-export default function ChallengeGoalSelectPage() {
+export default function ProgressTab() {
   return (
     <View className="flex-1 items-center justify-center bg-white">
-      <Text>챌린지 추가 페이지 - 목표 선택</Text>
+      <Text>학습 관리</Text>
     </View>
   );
 }
