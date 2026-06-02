@@ -205,7 +205,7 @@ export default function CreateGoalSettingsPage() {
   };
 
   const handleMinus = () => {
-    const newVal = Math.max(15, minutes - 15 === 0 ? 15 : minutes <= 30 ? 15 : minutes - 30);
+    const newVal = minutes === 30 ? 15 : Math.max(15, minutes - 30);
     setMinutes(newVal);
     const idx = timeValues.indexOf(newVal);
     setSelectedTimeIdx(idx !== -1 ? idx : 4);
@@ -233,7 +233,6 @@ export default function CreateGoalSettingsPage() {
         contentContainerClassName="p-4 gap-y-5"
         showsVerticalScrollIndicator={false}
       >
-        {/* 선택된 목표 */}
         <View
           className="flex-row items-center gap-x-3 rounded-lg p-4"
           style={{ backgroundColor: GREEN_LIGHT, borderWidth: 1.5, borderColor: GREEN_MID }}
@@ -245,7 +244,6 @@ export default function CreateGoalSettingsPage() {
           </View>
         </View>
 
-        {/* 목표 설정 */}
         <View>
           <Text className="font-semiBold mb-1 text-base text-btn-dark">목표 설정</Text>
           <Text className="mb-3.5 font-regular text-sm text-text-brown">
@@ -313,7 +311,6 @@ export default function CreateGoalSettingsPage() {
           </View>
         </View>
 
-        {/* 챌린지 기간 */}
         <View>
           <Text className="font-semiBold mb-3 text-sm text-btn-dark">챌린지 기간</Text>
           {(
@@ -336,7 +333,6 @@ export default function CreateGoalSettingsPage() {
           ))}
         </View>
 
-        {/* 반복 설정 */}
         <View>
           <Text className="font-semiBold mb-3 text-sm text-btn-dark">반복 설정</Text>
           <View className="flex-row gap-x-1.5">
@@ -383,7 +379,6 @@ export default function CreateGoalSettingsPage() {
           </View>
         </View>
 
-        {/* 알림 설정 */}
         <View>
           <Text className="font-semiBold mb-3 text-sm text-btn-dark">알림 설정</Text>
           <View className="rounded-sm border border-border bg-white px-4 py-3">
@@ -409,7 +404,6 @@ export default function CreateGoalSettingsPage() {
           </View>
         </View>
 
-        {/* 확인하기 버튼 */}
         <Pressable
           style={{
             backgroundColor: GREEN,
@@ -417,13 +411,23 @@ export default function CreateGoalSettingsPage() {
             paddingVertical: 16,
             alignItems: 'center',
           }}
-          onPress={() => router.push('/(app)/mypage/challenge/create-confirm')}
+          onPress={() =>
+            router.push({
+              pathname: '/(app)/mypage/challenge/create-confirm',
+              params: {
+                startDate: formatDate(startDate),
+                endDate: formatDate(endDate),
+                minutes: String(minutes),
+                days: selectedDays.join(','),
+                alarmTime: alarmLabel,
+              },
+            })
+          }
         >
           <Text className="font-semiBold text-sm text-white">확인하기</Text>
         </Pressable>
       </ScrollView>
 
-      {/* 달력 모달 */}
       <CalendarModal
         visible={dateModal !== null}
         onClose={() => setDateModal(null)}
@@ -434,7 +438,6 @@ export default function CreateGoalSettingsPage() {
         }}
       />
 
-      {/* 직접 입력 모달 */}
       <Modal visible={customTimeModal} transparent animationType="fade">
         <Pressable
           className="flex-1 items-center justify-center bg-black/40"
@@ -489,7 +492,6 @@ export default function CreateGoalSettingsPage() {
         </Pressable>
       </Modal>
 
-      {/* 알림 시간 모달 */}
       <Modal visible={alarmModal} transparent animationType="fade">
         <Pressable
           className="flex-1 items-center justify-center bg-black/40"
