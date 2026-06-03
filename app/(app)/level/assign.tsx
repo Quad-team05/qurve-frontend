@@ -88,7 +88,7 @@ export default function LevelAssignPage() {
 
           <Pressable
             className="h-[43px] flex-1 items-center justify-center rounded-xl bg-btn-dark px-7 py-3"
-            onPress={() => router.push('/(app)/learning/problems/today')}
+            onPress={() => router.navigate('/(tabs)')}
           >
             <Text className="font-bold text-base text-white">학습 시작하기</Text>
           </Pressable>

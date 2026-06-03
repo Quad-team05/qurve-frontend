@@ -42,7 +42,16 @@ export default function NavigationBar({ state, navigation }: BottomTabBarProps) 
   };
 
   return (
-    <View className="border-t border-[#E0D8C8] bg-[#EDE8DE] px-10 py-6">
+    <View
+      style={{
+        borderTopWidth: 1,
+        borderTopColor: '#E0D8C8',
+        backgroundColor: '#EDE8DE',
+        paddingHorizontal: 40,
+        paddingTop: 24,
+        paddingBottom: 40,
+      }}
+    >
       <View className="flex-row items-end justify-between">
         {TAB_ITEMS.map((item) => {
           const routeIndex = state.routes.findIndex((route) => route.name === item.routeName);

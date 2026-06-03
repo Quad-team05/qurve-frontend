@@ -201,7 +201,7 @@ export default function LevelTestPage() {
           </View>
         </ScrollView>
 
-        <View className="pb-[18px]">
+        <View style={{ paddingBottom: 60 }}>
           <Text className="pb-[10px] text-sm font-semibold text-[#8C877D]">
             {currentQuestionIndex + 1} / {QUESTIONS.length}
           </Text>

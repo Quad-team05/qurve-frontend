@@ -1,18 +1,13 @@
-import TopBar from '@/components/ui/TopBar';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const questionOneOptions = ['처음 시작해요(0개월)', '3개월 미만', '3개월 ~ 1년 미만', '1년 이상'];
 const questionTwoOptions = ['둘 다 읽을수 있어요', '히라가나만 읽을 수 있어요', '아직 어려워요'];
-const questionThreeOptions = [
-  '네, 간단한 회화가 가능해요',
-  '짧은 문장, 단어만 말할 수 있어요',
-  '아직 어려워요',
-];
 
 export default function LevelTestSurveyPage() {
+  const router = useRouter();
   const totalQuestions = 2;
   const [selectedQ1, setSelectedQ1] = useState<number | null>(null);
   const [selectedQ2, setSelectedQ2] = useState<number | null>(null);
@@ -22,12 +17,17 @@ export default function LevelTestSurveyPage() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
-      <TopBar title="레벨 테스트" />
+      <View className="border-b border-border bg-bg px-4 pb-3 pt-0">
+        <View className="h-12 items-center justify-center">
+          <Text className="font-bold text-[16px] text-black">레벨 테스트</Text>
+        </View>
+      </View>
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-4 pt-3 pb-8"
+        contentContainerClassName="px-4 pt-3 pb-4"
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View className="mb-4">
           <View className="mb-2 flex-row items-center justify-between px-1">
@@ -37,7 +37,6 @@ export default function LevelTestSurveyPage() {
             </Text>
             <Text className="w-1/3 text-center text-xs font-semibold text-text-brown">결과</Text>
           </View>
-
           <View className="h-[3px] w-full bg-[#D8D2C7]">
             <View className="h-[3px] w-1/3 bg-[#6F7486]" />
           </View>
@@ -56,7 +55,6 @@ export default function LevelTestSurveyPage() {
               </Text>
             </View>
           </View>
-
           <View className="flex-row items-center justify-between">
             <View className="mr-3 h-[3px] flex-1 bg-white">
               <View className="h-[3px] bg-[#059669]" style={{ width: `${progressPercent}%` }} />
@@ -75,18 +73,41 @@ export default function LevelTestSurveyPage() {
         {questionOneOptions.map((option, idx) => {
           const selected = idx === selectedQ1;
           return (
-            <Pressable
+            <TouchableOpacity
               key={`q1-${option}`}
               onPress={() => setSelectedQ1(idx)}
-              className={`mb-[10px] flex-row items-center rounded-sm border px-3 py-4 ${selected ? 'border-[#C8E0D6] bg-[#F2F9EE]' : 'border-border bg-white'}`}
+              style={{
+                marginBottom: 10,
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderRadius: 4,
+                borderWidth: 1,
+                paddingHorizontal: 12,
+                paddingVertical: 16,
+                borderColor: selected ? '#C8E0D6' : '#E0D8C8',
+                backgroundColor: selected ? '#F2F9EE' : '#fff',
+              }}
             >
               <View
-                className={`mr-2 h-[18px] w-[18px] items-center justify-center rounded-full border ${selected ? 'border-border' : 'border-[#E4E4E4]'}`}
+                style={{
+                  marginRight: 8,
+                  height: 18,
+                  width: 18,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 9,
+                  borderWidth: 1,
+                  borderColor: selected ? '#E0D8C8' : '#E4E4E4',
+                }}
               >
-                {selected ? <View className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> : null}
+                {selected ? (
+                  <View
+                    style={{ height: 10, width: 10, borderRadius: 5, backgroundColor: '#059669' }}
+                  />
+                ) : null}
               </View>
-              <Text className="font-bold text-sm text-gray">{option}</Text>
-            </Pressable>
+              <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#6B7280' }}>{option}</Text>
+            </TouchableOpacity>
           );
         })}
 
@@ -98,32 +119,62 @@ export default function LevelTestSurveyPage() {
         {questionTwoOptions.map((option, idx) => {
           const selected = idx === selectedQ2;
           return (
-            <Pressable
+            <TouchableOpacity
               key={`q2-${option}`}
               onPress={() => setSelectedQ2(idx)}
-              className={`mb-[10px] flex-row items-center rounded-sm border px-3 py-4 ${selected ? 'border-[#C8E0D6] bg-[#F2F9EE]' : 'border-border bg-white'}`}
+              style={{
+                marginBottom: 10,
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderRadius: 4,
+                borderWidth: 1,
+                paddingHorizontal: 12,
+                paddingVertical: 16,
+                borderColor: selected ? '#C8E0D6' : '#E0D8C8',
+                backgroundColor: selected ? '#F2F9EE' : '#fff',
+              }}
             >
               <View
-                className={`mr-2 h-[18px] w-[18px] items-center justify-center rounded-full border ${selected ? 'border-border' : 'border-[#E4E4E4]'}`}
+                style={{
+                  marginRight: 8,
+                  height: 18,
+                  width: 18,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 9,
+                  borderWidth: 1,
+                  borderColor: selected ? '#E0D8C8' : '#E4E4E4',
+                }}
               >
-                {selected ? <View className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> : null}
+                {selected ? (
+                  <View
+                    style={{ height: 10, width: 10, borderRadius: 5, backgroundColor: '#059669' }}
+                  />
+                ) : null}
               </View>
-              <Text className="font-bold text-sm text-gray">{option}</Text>
-            </Pressable>
+              <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#6B7280' }}>{option}</Text>
+            </TouchableOpacity>
           );
         })}
+      </ScrollView>
 
-        <Pressable
-          className={`mt-3 h-[52px] items-center justify-center rounded-xl ${canStartTest ? 'bg-[#2A2018]' : 'bg-[#B9B2A7]'}`}
+      <View style={{ paddingHorizontal: 16, paddingBottom: 60, paddingTop: 12 }}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={{
+            height: 52,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 12,
+            backgroundColor: canStartTest ? '#2A2018' : '#B9B2A7',
+          }}
           onPress={() => {
-            if (!canStartTest) return;
             router.push('/(app)/level/test');
           }}
-          disabled={!canStartTest}
         >
-          <Text className="text-base font-medium text-white">레벨 테스트 시작하기</Text>
-        </Pressable>
-      </ScrollView>
+          <Text style={{ fontSize: 16, color: '#fff' }}>레벨 테스트 시작하기</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
