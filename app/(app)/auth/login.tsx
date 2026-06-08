@@ -3,11 +3,59 @@ import KakaoIcon from '@/assets/icons/kakao.svg';
 import NaverIcon from '@/assets/icons/naver.svg';
 import Text from '@/components/ui/AppText';
 import TextInput from '@/components/ui/AppTextInput';
+import { ApiError } from '@/lib/api/client';
+import { login } from '@/lib/api/auth';
 import { useRouter } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Platform, Pressable, ToastAndroid, View } from 'react-native';
+
+const LOGIN_ERROR_MESSAGE = '로그인 정보를 확인해주세요.';
+
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
 
 export default function LoginPage() {
   const router = useRouter();
+  const [loginId, setLoginId] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const hasEmptyField = !loginId.trim() || !password.trim();
+  const isLoginDisabled = isSubmitting;
+
+  const handleLogin = async () => {
+    if (isLoginDisabled) {
+      showToast('아이디와 비밀번호를 입력해주세요.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await login({
+        loginId: loginId.trim(),
+        password,
+      });
+      router.replace('/(tabs)');
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        (error.code === 'USER_NOT_FOUND' || error.code === 'INVALID_PASSWORD')
+      ) {
+        showToast(LOGIN_ERROR_MESSAGE);
+        return;
+      }
+
+      showToast('로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <View className="flex-1 bg-bg px-5 py-9">
@@ -18,22 +66,37 @@ export default function LoginPage() {
       <View className="w-full rounded-sm border border-border bg-white px-4 py-4">
         <Text className="text-base text-xs text-[#A09080]">아이디</Text>
         <TextInput
+          value={loginId}
+          onChangeText={setLoginId}
           placeholder="아이디를 입력해주세요"
           placeholderTextColor="#C0B8B0"
+          autoCapitalize="none"
+          autoCorrect={false}
           className="mt-1 w-full rounded-sm border border-border bg-bg px-3 py-4 text-base text-btn-dark"
         />
         <Text className="mb-1 mt-2 text-xs text-[#A09080]">비밀번호</Text>
         <TextInput
+          value={password}
+          onChangeText={setPassword}
           placeholder="비밀번호를 입력해주세요"
           placeholderTextColor="#C0B8B0"
           secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="done"
+          onSubmitEditing={handleLogin}
           className="mt-1 w-full rounded-sm border border-border bg-bg px-3 py-4 text-base text-btn-dark"
         />
         <Pressable
-          className="mt-4 w-full items-center justify-center rounded-lg bg-btn-dark"
-          onPress={() => router.replace('/(app)/level/test-survey')}
+          className={`mt-4 w-full items-center justify-center rounded-lg ${
+            isSubmitting || hasEmptyField ? 'bg-[#B9B2A7]' : 'bg-btn-dark'
+          }`}
+          disabled={isLoginDisabled}
+          onPress={handleLogin}
         >
-          <Text className="py-4 text-base font-semibold text-white">로그인</Text>
+          <Text className="py-4 text-base font-semibold text-white">
+            {isSubmitting ? '로그인 중...' : '로그인'}
+          </Text>
         </Pressable>
       </View>
       <View className="mt-4 flex-row items-center justify-center gap-6">
