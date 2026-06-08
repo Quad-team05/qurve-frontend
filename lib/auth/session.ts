@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 const ACCESS_TOKEN_KEY = 'qurve.accessToken';
 const REFRESH_TOKEN_KEY = 'qurve.refreshToken';
 const USER_DETAILS_KEY = 'qurve.userDetails';
+const NEEDS_LEVEL_TEST_KEY = 'qurve.needsLevelTest';
 
 export type UserDetails = Record<string, unknown>;
 
@@ -76,10 +77,24 @@ export async function getUserDetails(): Promise<UserDetails | null> {
   }
 }
 
+export async function markNeedsLevelTest() {
+  await setItem(NEEDS_LEVEL_TEST_KEY, 'true');
+}
+
+export async function consumeNeedsLevelTest() {
+  const needsLevelTest = await getItem(NEEDS_LEVEL_TEST_KEY);
+
+  if (needsLevelTest !== 'true') return false;
+
+  await deleteItem(NEEDS_LEVEL_TEST_KEY);
+  return true;
+}
+
 export async function clearAuthSession() {
   await Promise.all([
     deleteItem(ACCESS_TOKEN_KEY),
     deleteItem(REFRESH_TOKEN_KEY),
     deleteItem(USER_DETAILS_KEY),
+    deleteItem(NEEDS_LEVEL_TEST_KEY),
   ]);
 }

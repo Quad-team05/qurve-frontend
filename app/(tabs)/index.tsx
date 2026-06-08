@@ -1,11 +1,31 @@
 import Text from '@/components/ui/AppText';
+import { consumeNeedsLevelTest } from '@/lib/auth/session';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const router = useRouter();
   const days = ['월', '화', '수', '목', '금', '토', '일'];
+
+  useEffect(() => {
+    let mounted = true;
+
+    const redirectToLevelTestIfNeeded = async () => {
+      const needsLevelTest = await consumeNeedsLevelTest();
+
+      if (!mounted || !needsLevelTest) return;
+
+      router.replace('/(app)/level/test-survey');
+    };
+
+    redirectToLevelTestIfNeeded();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
