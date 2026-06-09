@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api/client';
+import { API_BASE_URL, apiFetch } from '@/lib/api/client';
 
 export type JlptLevel = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
 
@@ -22,6 +22,7 @@ export type VocabWord = {
   koreanMeaning?: string;
   meaningKr?: string;
   meaningKorean?: string;
+  audioPath?: string;
 };
 
 export type VocabWordsData = {
@@ -52,4 +53,13 @@ export async function getVocabWords(level: JlptLevel, unitNumber: number) {
   );
 
   return response.data;
+}
+
+export function buildVocabularyAudioUrl(audioPath: string) {
+  if (/^https?:\/\//.test(audioPath)) return audioPath;
+
+  const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, '');
+  const normalizedPath = audioPath.startsWith('/') ? audioPath : `/${audioPath}`;
+
+  return `${apiOrigin}${normalizedPath}`;
 }

@@ -33,8 +33,10 @@ export default function MyPage() {
           <View className="flex-row items-center gap-x-3.5">
             <ProfileIcon />
             <View className="flex-1">
-              <Text className="font-semiBold text-base text-btn-dark">햄지</Text>
-              <Text className="mt-0.5 font-regular text-xs text-text-brown">hamham@gmail.com</Text>
+              <Text className="font-semiBold text-base text-btn-dark">선정</Text>
+              <Text className="mt-0.5 font-regular text-xs text-text-brown">
+                sunjeong2201@gmail.com
+              </Text>
               <Pressable
                 className="mt-2 self-start rounded-sm border border-border bg-bg px-2.5 py-1"
                 onPress={() => router.push('/(app)/mypage/profile-edit')}

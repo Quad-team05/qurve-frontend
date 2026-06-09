@@ -1,10 +1,13 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { ApiError } from '@/lib/api/client';
-import { getVocabWords } from '@/lib/api/vocabulary';
+import { getAccessToken } from '@/lib/auth/session';
+import { buildVocabularyAudioUrl, getVocabWords } from '@/lib/api/vocabulary';
 import type { JlptLevel, VocabWord, VocabWordsData } from '@/lib/api/vocabulary';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -78,6 +81,9 @@ export default function VocabStudyPage() {
   const [words, setWords] = useState<StudyWord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [playingWordId, setPlayingWordId] = useState<number | null>(null);
+  const [audioErrorMessage, setAudioErrorMessage] = useState('');
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -119,6 +125,12 @@ export default function VocabStudyPage() {
     };
   }, [level, unitNumber]);
 
+  useEffect(() => {
+    return () => {
+      soundRef.current?.unloadAsync();
+    };
+  }, []);
+
   const toggleReveal = (wordId: number) => {
     setWords((prev) =>
       prev.map((word) => (word.wordId === wordId ? { ...word, revealed: !word.revealed } : word)),
@@ -131,6 +143,97 @@ export default function VocabStudyPage() {
         word.wordId === wordId ? { ...word, bookmarked: !word.bookmarked } : word,
       ),
     );
+  };
+
+  const stopAudio = async () => {
+    if (!soundRef.current) return;
+
+    await soundRef.current.unloadAsync();
+    soundRef.current = null;
+    setPlayingWordId(null);
+  };
+
+  const downloadAudio = async (word: StudyWord, accessToken: string) => {
+    const audioUrl = buildVocabularyAudioUrl(word.audioPath ?? '');
+    const fileUri = `${FileSystem.cacheDirectory}vocab-audio-${word.wordId}.mp3`;
+    const result = await FileSystem.downloadAsync(audioUrl, fileUri, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (result.status === 401 || result.status === 403) {
+      throw new Error('AUTH_AUDIO_ERROR');
+    }
+
+    if (result.status < 200 || result.status >= 300) {
+      throw new Error(`AUDIO_STATUS_${result.status}`);
+    }
+
+    return result.uri;
+  };
+
+  const playWordAudio = async (word: StudyWord) => {
+    if (!word.audioPath) {
+      setAudioErrorMessage('재생할 음성이 없습니다.');
+      return;
+    }
+
+    try {
+      if (playingWordId === word.wordId) {
+        await stopAudio();
+        return;
+      }
+
+      await stopAudio();
+      setAudioErrorMessage('');
+      setPlayingWordId(word.wordId);
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        setPlayingWordId(null);
+        setAudioErrorMessage('로그인이 필요합니다. 다시 로그인해주세요.');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+      });
+
+      const audioFileUri = await downloadAudio(word, accessToken);
+      const { sound } = await Audio.Sound.createAsync({ uri: audioFileUri }, { shouldPlay: true });
+
+      soundRef.current = sound;
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (!status.isLoaded || !status.didJustFinish) return;
+
+        sound.unloadAsync();
+        if (soundRef.current === sound) soundRef.current = null;
+        setPlayingWordId(null);
+      });
+    } catch (error) {
+      soundRef.current = null;
+      setPlayingWordId(null);
+
+      if (error instanceof Error && error.message === 'AUTH_AUDIO_ERROR') {
+        setAudioErrorMessage('음성 재생 권한이 없습니다. 다시 로그인해주세요.');
+        return;
+      }
+
+      if (error instanceof Error && error.message.startsWith('AUDIO_STATUS_')) {
+        const status = error.message.replace('AUDIO_STATUS_', '');
+
+        if (status === '502') {
+          setAudioErrorMessage('서버에서 음성 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
+          return;
+        }
+
+        setAudioErrorMessage(`음성 파일 요청에 실패했습니다. (${status})`);
+        return;
+      }
+
+      setAudioErrorMessage('음성을 재생할 수 없습니다.');
+    }
   };
 
   return (
@@ -167,17 +270,38 @@ export default function VocabStudyPage() {
           </View>
         ) : null}
 
+        {audioErrorMessage ? (
+          <View className="mb-3 rounded-sm border border-border bg-white p-3">
+            <Text className="font-regular text-xs text-[#DC2626]">{audioErrorMessage}</Text>
+          </View>
+        ) : null}
+
         {!isLoading &&
           !errorMessage &&
           words.map((word) => (
             <View key={word.wordId} className="mb-2.5 rounded-sm border border-border bg-white p-4">
               <View className="mb-2 flex-row items-center justify-between">
                 <Text className="font-regular text-xs text-text-brown">{word.orderNumber}</Text>
-                <Pressable onPress={() => toggleBookmark(word.wordId)}>
-                  <Text style={{ fontSize: 18, color: word.bookmarked ? '#D97706' : '#C8C0B0' }}>
-                    🔖
-                  </Text>
-                </Pressable>
+                <View className="flex-row items-center gap-3">
+                  <Pressable
+                    className="h-8 w-8 items-center justify-center rounded-full border border-border bg-bg"
+                    onPress={() => playWordAudio(word)}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: playingWordId === word.wordId ? '#2A2018' : '#A09080',
+                      }}
+                    >
+                      {playingWordId === word.wordId ? '■' : '▶'}
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={() => toggleBookmark(word.wordId)}>
+                    <Text style={{ fontSize: 18, color: word.bookmarked ? '#D97706' : '#C8C0B0' }}>
+                      🔖
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
 
               <Text className="mb-1 text-center font-regular text-4xl text-btn-dark">
