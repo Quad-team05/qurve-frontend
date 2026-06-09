@@ -83,13 +83,17 @@ async function parseResponse(response: Response) {
 function hasErrorCode(payload: unknown): payload is ErrorPayload {
   if (!payload || typeof payload !== 'object') return false;
 
-  const code = (payload as ErrorPayload).code;
-  return code === 'USER_NOT_FOUND' || code === 'INVALID_PASSWORD';
+  const { code, success } = payload as ErrorPayload & { success?: boolean };
+
+  if (success === false) return true;
+
+  return typeof code === 'string' && code !== 'SUCCESS';
 }
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
   const { auth = true, headers, ...fetchOptions } = options;
   const normalizedHeaders = normalizeHeaders(headers);
+  const url = buildApiUrl(path);
 
   if (fetchOptions.body && !normalizedHeaders['Content-Type']) {
     normalizedHeaders['Content-Type'] = 'application/json';
@@ -103,10 +107,21 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     }
   }
 
-  const response = await fetch(buildApiUrl(path), {
-    ...fetchOptions,
-    headers: normalizedHeaders,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      ...fetchOptions,
+      headers: normalizedHeaders,
+    });
+  } catch {
+    throw new ApiError('서버에 연결할 수 없습니다.', 0, {
+      code: 'NETWORK_ERROR',
+      message: '서버에 연결할 수 없습니다.',
+      url,
+    });
+  }
+
   const payload = await parseResponse(response);
 
   if (!response.ok || hasErrorCode(payload)) {
