@@ -24,6 +24,7 @@ export default function AppRoutesLayout() {
       <Stack.Screen name="learning/vocab/bookmarked" options={{ title: '북마크 단어' }} />
 
       <Stack.Screen name="mypage/profile-edit" options={{ title: '회원정보 수정' }} />
+      <Stack.Screen name="mypage/badges" options={{ title: '배지 관리' }} />
       <Stack.Screen name="mypage/challenge" options={{ title: '챌린지 관리' }} />
       <Stack.Screen
         name="mypage/challenge/create-goal-select"
