@@ -11,8 +11,8 @@ const GREEN = '#059669';
 const ProfileIcon = () => (
   <Svg width={56} height={56} viewBox="0 0 56 56">
     <Circle cx={28} cy={28} r={27} fill="white" stroke="#E0D8C8" strokeWidth={1.5} />
-    <Circle cx={28} cy={22} r={9} fill="#2A2018" />
-    <Path d="M8 48 C8 36 48 36 48 48" fill="#2A2018" />
+    <Circle cx={28} cy={23} r={8} fill="#2A2018" />
+    <Path d="M10 50 C10 38 46 38 46 50" fill="#2A2018" />
   </Svg>
 );
 
@@ -66,6 +66,17 @@ export default function MyPage() {
             <View className="flex-row items-center gap-x-3">
               <Text style={{ fontSize: 18 }}>🏆</Text>
               <Text className="font-regular text-sm text-btn-dark">챌린지 관리</Text>
+            </View>
+            <Text className="font-regular text-sm text-text-brown">›</Text>
+          </Pressable>
+
+          <Pressable
+            className="flex-row items-center justify-between border-b border-border px-4 py-4"
+            onPress={() => router.push('/(app)/mypage/activity')}
+          >
+            <View className="flex-row items-center gap-x-3">
+              <Text style={{ fontSize: 18 }}>📊</Text>
+              <Text className="font-regular text-sm text-btn-dark">레벨 / 배지</Text>
             </View>
             <Text className="font-regular text-sm text-text-brown">›</Text>
           </Pressable>
