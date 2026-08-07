@@ -61,6 +61,17 @@ export default function MyPage() {
         <View className="overflow-hidden rounded-sm border border-border bg-white">
           <Pressable
             className="flex-row items-center justify-between border-b border-border px-4 py-4"
+            onPress={() => router.push('/(app)/mypage/badges')}
+          >
+            <View className="flex-row items-center gap-x-3">
+              <Text style={{ fontSize: 18 }}>🎖️</Text>
+              <Text className="font-regular text-sm text-btn-dark">배지 관리</Text>
+            </View>
+            <Text className="font-regular text-sm text-text-brown">›</Text>
+          </Pressable>
+
+          <Pressable
+            className="flex-row items-center justify-between border-b border-border px-4 py-4"
             onPress={() => router.push('/(app)/mypage/challenge')}
           >
             <View className="flex-row items-center gap-x-3">
