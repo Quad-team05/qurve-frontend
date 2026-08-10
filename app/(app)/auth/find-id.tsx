@@ -1,6 +1,7 @@
+import TextInput, { Pressable, Input, View } from 'react-native';
 import TopBar from '@/components/ui/TopBar';
 import { router } from 'expo-router';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import Text from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const cardShadowStyle = {
@@ -49,7 +50,7 @@ export default function FindIdPage() {
         >
           <View className="absolute -top-[5px] left-1/2 z-10 h-[13px] w-[50px] -translate-x-1/2 rounded-[1px] bg-[#B8E8C0]" />
           <Text className="text-center text-sm text-[#A09080]">회원님의 아이디는</Text>
-          <Text className="mb-[6px] mt-[11px] text-center text-xl font-bold text-btn-dark">
+          <Text className="mb-[6px] mt-[11px] text-center font-bold text-xl text-btn-dark">
             ham4246
           </Text>
           <Text className="text-center text-sm text-[#A09080]">입니다.</Text>

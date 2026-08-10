@@ -1,6 +1,7 @@
+import Text from '@/components/ui/AppText';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const questionOneOptions = ['처음 시작해요(0개월)', '3개월 미만', '3개월 ~ 1년 미만', '1년 이상'];
