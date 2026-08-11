@@ -51,6 +51,18 @@ type FindIdData = {
   loginId: string;
 };
 
+type PasswordResetEmailRequest = {
+  loginId: string;
+  email: string;
+};
+
+type PasswordResetRequest = {
+  loginId: string;
+  email: string;
+  code: string;
+  newPassword: string;
+};
+
 export async function login(request: LoginRequest) {
   const response = await apiFetch<LoginResponse>('/auth/login', {
     method: 'POST',
@@ -108,4 +120,20 @@ export async function findLoginId(request: FindIdRequest) {
   });
 
   return response.data;
+}
+
+export async function sendPasswordResetEmail(request: PasswordResetEmailRequest) {
+  await apiFetch<ApiResponse<null>>('/auth/password/email/send', {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify(request),
+  });
+}
+
+export async function resetPassword(request: PasswordResetRequest) {
+  await apiFetch<ApiResponse<null>>('/auth/password/reset', {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify(request),
+  });
 }
