@@ -1,6 +1,7 @@
+import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { router } from 'expo-router';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const cardShadowStyle = {

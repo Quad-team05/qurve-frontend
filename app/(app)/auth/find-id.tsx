@@ -1,11 +1,13 @@
+import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import Text from '@/components/ui/AppText';
 import TextInput from '@/components/ui/AppTextInput';
 import { findLoginId } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
 import { router } from 'expo-router';
+
 import { useState } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { Modal, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const cardShadowStyle = {
