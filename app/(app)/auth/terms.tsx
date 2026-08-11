@@ -1,5 +1,6 @@
+import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const sections = [
@@ -50,7 +51,7 @@ export default function TermsPage() {
 
         {sections.map((section) => (
           <View key={section.title} className="mb-4 border border-border bg-white p-4">
-            <Text className="mb-3 text-base font-bold text-btn-dark">{section.title}</Text>
+            <Text className="mb-3 font-bold text-base text-btn-dark">{section.title}</Text>
 
             <View className="gap-2">
               {section.content.map((line) => (

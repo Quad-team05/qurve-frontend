@@ -4,8 +4,9 @@ import TopBar from '@/components/ui/TopBar';
 import { resetPassword, sendPasswordResetEmail, verifyEmailCode } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
 import { router } from 'expo-router';
+
 import { useMemo, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, TextInput, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const cardShadowStyle = {
