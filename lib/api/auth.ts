@@ -42,6 +42,15 @@ type SignupUser = {
   nickname: string;
 };
 
+type FindIdRequest = {
+  name: string;
+  email: string;
+};
+
+type FindIdData = {
+  loginId: string;
+};
+
 export async function login(request: LoginRequest) {
   const response = await apiFetch<LoginResponse>('/auth/login', {
     method: 'POST',
@@ -83,6 +92,16 @@ export async function verifyEmailCode(email: string, code: string) {
 
 export async function signup(request: SignupRequest) {
   const response = await apiFetch<ApiResponse<SignupUser>>('/auth/signup', {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify(request),
+  });
+
+  return response.data;
+}
+
+export async function findLoginId(request: FindIdRequest) {
+  const response = await apiFetch<ApiResponse<FindIdData>>('/auth/find-id', {
     method: 'POST',
     auth: false,
     body: JSON.stringify(request),
