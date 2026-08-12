@@ -137,3 +137,9 @@ export async function resetPassword(request: PasswordResetRequest) {
     body: JSON.stringify(request),
   });
 }
+
+export async function withdraw() {
+  await apiFetch<ApiResponse<null>>('/auth/withdraw', {
+    method: 'DELETE',
+  });
+}
