@@ -1,12 +1,24 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import { withdraw } from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/client';
+import { clearAuthSession } from '@/lib/auth/session';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 const GREEN = '#059669';
+
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
 
 const ProfileIcon = () => (
   <Svg width={56} height={56} viewBox="0 0 56 56">
@@ -19,6 +31,28 @@ const ProfileIcon = () => (
 export default function MyPage() {
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  const handleWithdraw = async () => {
+    if (isWithdrawing) return;
+
+    try {
+      setIsWithdrawing(true);
+      await withdraw();
+      await clearAuthSession();
+      setShowModal(false);
+      showToast('회원 탈퇴가 완료되었습니다.');
+      router.replace('/(app)/auth/login');
+    } catch (error) {
+      if (error instanceof ApiError) {
+        showToast(error.message || '회원 탈퇴에 실패했습니다.');
+      } else {
+        showToast('회원 탈퇴에 실패했습니다.');
+      }
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -138,14 +172,16 @@ export default function MyPage() {
               <Pressable
                 className="flex-1 items-center rounded-sm border py-3"
                 style={{ borderColor: '#CC4444' }}
-                onPress={() => router.replace('/(app)/auth/login')}
+                disabled={isWithdrawing}
+                onPress={handleWithdraw}
               >
                 <Text className="font-semiBold text-sm" style={{ color: '#CC4444' }}>
-                  탈퇴
+                  {isWithdrawing ? '처리 중...' : '탈퇴'}
                 </Text>
               </Pressable>
               <Pressable
                 className="flex-1 items-center rounded-sm bg-btn-dark py-3"
+                disabled={isWithdrawing}
                 onPress={() => setShowModal(false)}
               >
                 <Text className="font-semiBold text-sm text-white">취소</Text>

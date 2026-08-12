@@ -211,7 +211,7 @@ export default function SignUpPage() {
         return;
       }
 
-      if (error instanceof ApiError && error.status === 403) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         activateEmailVerification();
         setNotice('인증번호를 발송했습니다. 메일함을 확인해주세요.', 'success');
         return;
@@ -246,7 +246,7 @@ export default function SignUpPage() {
         return;
       }
 
-      if (error instanceof ApiError && error.status === 403) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         setVerifiedEmail(trimmedEmail);
         setTimerLeft(0);
         setNotice('이메일 인증이 완료되었습니다.', 'success');
