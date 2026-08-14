@@ -1,6 +1,6 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { getMyProfile, type UserProfile } from '@/lib/api/user';
+import { changeMyPassword, getMyProfile, updateMyProfile, type UserProfile } from '@/lib/api/user';
 import { ApiError } from '@/lib/api/client';
 import { clearAuthSession } from '@/lib/auth/session';
 import { useRouter } from 'expo-router';
@@ -38,17 +38,20 @@ export default function ProfileEditPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [id, setId] = useState('');
-  const [originalLoginId, setOriginalLoginId] = useState('');
-  const [idError, setIdError] = useState(false);
-  const [idChecked, setIdChecked] = useState(false);
   const [name, setName] = useState('');
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
   const [currentPw, setCurrentPw] = useState('');
   const [currentPwError, setCurrentPwError] = useState(false);
   const [newPw, setNewPw] = useState('');
+  const [newPwError, setNewPwError] = useState(false);
   const [newPwConfirm, setNewPwConfirm] = useState('');
   const [newPwConfirmError, setNewPwConfirmError] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isChangingPw, setIsChangingPw] = useState(false);
+
+  const isValidPassword = (value: string) =>
+    /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,20}$/.test(value);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -56,7 +59,6 @@ export default function ProfileEditPage() {
         const result = await getMyProfile();
         setProfile(result);
         setId(result.loginId ?? '');
-        setOriginalLoginId(result.loginId ?? '');
         setName(result.name ?? '');
         setNickname(result.nickname ?? '');
         setEmail(result.email ?? '');
@@ -74,48 +76,99 @@ export default function ProfileEditPage() {
     void loadProfile();
   }, [router]);
 
-  const checkId = () => {
-    if (!id.trim()) {
-      setIdError(true);
-      setIdChecked(false);
-      return;
-    }
+  const changePw = async () => {
+    if (isChangingPw) return;
 
-    if (id === originalLoginId) {
-      setIdError(false);
-      setIdChecked(true);
-      return;
-    }
-
-    if (id === 'ham4246') {
-      setIdError(true);
-      setIdChecked(false);
-    } else {
-      setIdError(false);
-      setIdChecked(true);
-    }
-  };
-
-  const changePw = () => {
-    if (currentPw !== '1234') {
+    if (!currentPw.trim()) {
       setCurrentPwError(true);
       return;
     }
+
     setCurrentPwError(false);
+
+    if (!isValidPassword(newPw)) {
+      setNewPwError(true);
+      return;
+    }
+
+    setNewPwError(false);
+
     if (newPw !== newPwConfirm) {
       setNewPwConfirmError(true);
       return;
     }
+
     setNewPwConfirmError(false);
-    Alert.alert('완료', '비밀번호가 변경되었습니다!');
+
+    try {
+      setIsChangingPw(true);
+      await changeMyPassword({
+        currentPassword: currentPw,
+        newPassword: newPw,
+      });
+      setCurrentPw('');
+      setNewPw('');
+      setNewPwConfirm('');
+      Alert.alert('완료', '비밀번호가 변경되었습니다!');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
+      if (error instanceof ApiError && error.code === 'INVALID_PASSWORD') {
+        setCurrentPwError(true);
+        return;
+      }
+
+      showToast(
+        error instanceof ApiError
+          ? error.message || '비밀번호 변경에 실패했습니다.'
+          : '비밀번호 변경에 실패했습니다.',
+      );
+    } finally {
+      setIsChangingPw(false);
+    }
   };
 
-  const save = () => {
-    if (idError) {
-      Alert.alert('오류', '아이디 중복확인을 해주세요.');
+  const save = async () => {
+    if (isSaving) return;
+
+    if (!name.trim() || !nickname.trim()) {
+      showToast('이름과 닉네임을 입력해주세요.');
       return;
     }
-    Alert.alert('완료', '저장되었습니다!');
+
+    try {
+      setIsSaving(true);
+      const updatedProfile = await updateMyProfile({
+        name: name.trim(),
+        nickname: nickname.trim(),
+        learningGoal: profile?.learningGoal ?? null,
+        currentLevel: profile?.currentLevel ?? null,
+      });
+
+      setProfile(updatedProfile);
+      setName(updatedProfile.name ?? '');
+      setNickname(updatedProfile.nickname ?? '');
+      showToast('회원정보가 수정되었습니다.');
+      router.replace('/(tabs)/mypage');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
+      showToast(
+        error instanceof ApiError
+          ? error.message || '회원정보 수정에 실패했습니다.'
+          : '회원정보 수정에 실패했습니다.',
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -145,44 +198,33 @@ export default function ProfileEditPage() {
                     flex: 1,
                     height: 44,
                     borderWidth: 1,
-                    borderColor: idError ? '#CC4444' : idChecked ? '#059669' : '#E0D8C8',
+                    borderColor: '#E0D8C8',
                     borderRadius: 2,
-                    backgroundColor: '#F5F3EE',
+                    backgroundColor: '#EDEBE8',
                     paddingHorizontal: 12,
                     fontSize: 14,
                     color: '#2A2018',
                   }}
                   value={id}
-                  onChangeText={(v) => {
-                    setId(v);
-                    setIdError(false);
-                    setIdChecked(false);
-                  }}
+                  editable={false}
                 />
                 <Pressable
                   style={{
                     height: 44,
                     paddingHorizontal: 12,
-                    backgroundColor: '#2A2018',
+                    backgroundColor: '#CFC7BC',
                     borderRadius: 2,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
-                  onPress={checkId}
+                  onPress={() => showToast('아이디는 변경할 수 없습니다.')}
                 >
-                  <Text className="font-regular text-xs text-white">중복확인</Text>
+                  <Text className="font-regular text-xs text-white">변경불가</Text>
                 </Pressable>
               </View>
-              {idError && (
-                <Text className="mt-1 font-regular text-xs" style={{ color: '#CC4444' }}>
-                  이미 존재하는 아이디입니다.
-                </Text>
-              )}
-              {idChecked && (
-                <Text className="mt-1 font-regular text-xs" style={{ color: '#059669' }}>
-                  사용 가능한 아이디입니다.
-                </Text>
-              )}
+              <Text className="mt-1 font-regular text-xs text-text-brown">
+                아이디는 변경이 불가합니다.
+              </Text>
             </View>
 
             {/* 이름 */}
@@ -297,12 +339,18 @@ export default function ProfileEditPage() {
                   color: '#2A2018',
                 }}
                 value={newPw}
-                onChangeText={setNewPw}
+                onChangeText={(value) => {
+                  setNewPw(value);
+                  setNewPwError(false);
+                }}
                 secureTextEntry
                 placeholder="영문, 숫자, 특수문자 포함 8자 이상"
                 placeholderTextColor="#C0B8B0"
               />
-              <Text className="mt-1 font-regular text-xs text-text-brown">
+              <Text
+                className="mt-1 font-regular text-xs"
+                style={{ color: newPwError ? '#CC4444' : '#A09080' }}
+              >
                 영문, 숫자, 특수문자를 포함해 8자 이상 입력해주세요.
               </Text>
             </View>
@@ -348,7 +396,9 @@ export default function ProfileEditPage() {
               }}
               onPress={changePw}
             >
-              <Text className="font-semiBold text-sm text-white">비밀번호 변경</Text>
+              <Text className="font-semiBold text-sm text-white">
+                {isChangingPw ? '변경 중...' : '비밀번호 변경'}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -364,7 +414,9 @@ export default function ProfileEditPage() {
           }}
           onPress={save}
         >
-          <Text className="font-semiBold text-sm text-white">저장</Text>
+          <Text className="font-semiBold text-sm text-white">
+            {isSaving ? '저장 중...' : '저장'}
+          </Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
