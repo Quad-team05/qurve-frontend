@@ -1,7 +1,19 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { getMyProfile, type UserProfile } from '@/lib/api/user';
+import { ApiError } from '@/lib/api/client';
+import { clearAuthSession } from '@/lib/auth/session';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  ToastAndroid,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
@@ -13,19 +25,68 @@ const ProfileIcon = () => (
   </Svg>
 );
 
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
+
 export default function ProfileEditPage() {
-  const [id, setId] = useState('ham4246');
+  const router = useRouter();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [id, setId] = useState('');
+  const [originalLoginId, setOriginalLoginId] = useState('');
   const [idError, setIdError] = useState(false);
   const [idChecked, setIdChecked] = useState(false);
-  const [name, setName] = useState('정현지');
-  const [nickname, setNickname] = useState('햄지');
+  const [name, setName] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [email, setEmail] = useState('');
   const [currentPw, setCurrentPw] = useState('');
   const [currentPwError, setCurrentPwError] = useState(false);
   const [newPw, setNewPw] = useState('');
   const [newPwConfirm, setNewPwConfirm] = useState('');
   const [newPwConfirmError, setNewPwConfirmError] = useState(false);
 
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const result = await getMyProfile();
+        setProfile(result);
+        setId(result.loginId ?? '');
+        setOriginalLoginId(result.loginId ?? '');
+        setName(result.name ?? '');
+        setNickname(result.nickname ?? '');
+        setEmail(result.email ?? '');
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearAuthSession();
+          router.replace('/(app)/auth/login');
+          return;
+        }
+
+        showToast('회원 정보를 불러오지 못했습니다.');
+      }
+    };
+
+    void loadProfile();
+  }, [router]);
+
   const checkId = () => {
+    if (!id.trim()) {
+      setIdError(true);
+      setIdChecked(false);
+      return;
+    }
+
+    if (id === originalLoginId) {
+      setIdError(false);
+      setIdChecked(true);
+      return;
+    }
+
     if (id === 'ham4246') {
       setIdError(true);
       setIdChecked(false);
@@ -176,7 +237,9 @@ export default function ProfileEditPage() {
                   justifyContent: 'center',
                 }}
               >
-                <Text className="font-regular text-sm text-text-brown">hamham@gmail.com</Text>
+                <Text className="font-regular text-sm text-text-brown">
+                  {email || profile?.email || '-'}
+                </Text>
               </View>
               <Text className="mt-1 font-regular text-xs text-text-brown">
                 이메일은 변경이 불가합니다.
