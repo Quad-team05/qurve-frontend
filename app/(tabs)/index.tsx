@@ -1,13 +1,26 @@
 import Text from '@/components/ui/AppText';
-import { consumeNeedsLevelTest } from '@/lib/auth/session';
+import { getMyProfile, type UserProfile } from '@/lib/api/user';
+import { ApiError } from '@/lib/api/client';
+import { clearAuthSession, consumeNeedsLevelTest } from '@/lib/auth/session';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const days = ['월', '화', '수', '목', '금', '토', '일'];
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -27,12 +40,36 @@ export default function HomeScreen() {
     };
   }, [router]);
 
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setIsProfileLoading(true);
+        const result = await getMyProfile();
+        setProfile(result);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearAuthSession();
+          router.replace('/(app)/auth/login');
+          return;
+        }
+
+        showToast('회원 정보를 불러오지 못했습니다.');
+      } finally {
+        setIsProfileLoading(false);
+      }
+    };
+
+    void loadProfile();
+  }, [router]);
+
   return (
     <SafeAreaView className="flex-1 bg-bg">
       {/* 헤더 */}
       <View className="border-b border-border bg-bg px-4 pb-3 pt-2">
         <Text className="font-regular text-xs text-text-brown">good morning</Text>
-        <Text className="font-semiBold text-2xl text-btn-dark">선정 님 😊</Text>
+        <Text className="font-semiBold text-2xl text-btn-dark">
+          {isProfileLoading ? '불러오는 중...' : `${profile?.name ?? '-'} 님 😊`}
+        </Text>
         <Text className="font-regular text-xs text-text-brown">오늘의 학습이 남아있어요</Text>
       </View>
 

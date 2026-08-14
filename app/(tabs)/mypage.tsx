@@ -3,8 +3,9 @@ import TopBar from '@/components/ui/TopBar';
 import { withdraw } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
 import { clearAuthSession } from '@/lib/auth/session';
+import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -32,6 +33,30 @@ export default function MyPage() {
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setIsProfileLoading(true);
+        const result = await getMyProfile();
+        setProfile(result);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearAuthSession();
+          router.replace('/(app)/auth/login');
+          return;
+        }
+
+        showToast('회원 정보를 불러오지 못했습니다.');
+      } finally {
+        setIsProfileLoading(false);
+      }
+    };
+
+    void loadProfile();
+  }, [router]);
 
   const handleWithdraw = async () => {
     if (isWithdrawing) return;
@@ -67,8 +92,18 @@ export default function MyPage() {
           <View className="flex-row items-center gap-x-3.5">
             <ProfileIcon />
             <View className="flex-1">
-              <Text className="font-semiBold text-base text-btn-dark">햄지</Text>
-              <Text className="mt-0.5 font-regular text-xs text-text-brown">hamham@gmail.com</Text>
+              <Text className="font-semiBold text-base text-btn-dark">
+                {isProfileLoading ? '불러오는 중...' : (profile?.name ?? '-')}
+              </Text>
+              <Text className="mt-0.5 font-regular text-xs text-text-brown">
+                닉네임 {isProfileLoading ? '-' : (profile?.nickname ?? '-')}
+              </Text>
+              <Text className="mt-0.5 font-regular text-xs text-text-brown">
+                아이디 {isProfileLoading ? '-' : (profile?.loginId ?? '-')}
+              </Text>
+              <Text className="mt-0.5 font-regular text-xs text-text-brown">
+                {isProfileLoading ? '-' : (profile?.email ?? '-')}
+              </Text>
               <Pressable
                 className="mt-2 self-start rounded-sm border border-border bg-bg px-2.5 py-1"
                 onPress={() => router.push('/(app)/mypage/profile-edit')}
