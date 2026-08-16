@@ -1,7 +1,11 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import { getMyBadges } from '@/lib/api/badge';
+import { ApiError } from '@/lib/api/client';
+import { clearAuthSession } from '@/lib/auth/session';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const GREEN = '#059669';
@@ -10,6 +14,15 @@ const GREEN_MID = '#A7F3D0';
 const BORDER = '#E0D8C8';
 const TEXT = '#2A2018';
 const TEXT3 = '#A09080';
+
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
 
 const xpDays = [
   { day: '월', xp: 80, done: true },
@@ -23,6 +36,29 @@ const xpDays = [
 
 export default function ActivityPage() {
   const router = useRouter();
+  const [badgeSummary, setBadgeSummary] = useState({ achievedCount: 0, totalCount: 0 });
+
+  useEffect(() => {
+    const loadBadgeSummary = async () => {
+      try {
+        const result = await getMyBadges();
+        setBadgeSummary({
+          achievedCount: result.achievedCount,
+          totalCount: result.totalCount,
+        });
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearAuthSession();
+          router.replace('/(app)/auth/login');
+          return;
+        }
+
+        showToast('배지 정보를 불러오지 못했습니다.');
+      }
+    };
+
+    void loadBadgeSummary();
+  }, [router]);
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -85,7 +121,9 @@ export default function ActivityPage() {
               <Text style={{ fontSize: 18 }}>🏅</Text>
               <View>
                 <Text style={{ fontSize: 12, fontWeight: '600', color: GREEN }}>나의 배지</Text>
-                <Text style={{ fontSize: 10, color: TEXT3 }}>10개 달성 / 48개</Text>
+                <Text style={{ fontSize: 10, color: TEXT3 }}>
+                  {badgeSummary.achievedCount}개 달성 / {badgeSummary.totalCount}개
+                </Text>
               </View>
             </View>
             <Text style={{ fontSize: 12, color: GREEN }}>보러가기 →</Text>
