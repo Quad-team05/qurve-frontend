@@ -23,7 +23,7 @@ export default function SocialCallbackPage() {
   useEffect(() => {
     const completeSocialLogin = async () => {
       if (typeof accessToken !== 'string' || typeof refreshToken !== 'string') {
-        showToast('카카오 로그인 응답을 확인할 수 없습니다.');
+        showToast('소셜 로그인 응답을 확인할 수 없습니다.');
         router.replace('/(app)/auth/login');
         return;
       }
@@ -43,7 +43,7 @@ export default function SocialCallbackPage() {
   return (
     <View className="flex-1 items-center justify-center bg-bg px-6">
       <Text className="text-center font-regular text-sm text-text-brown">
-        카카오 로그인 처리 중입니다...
+        소셜 로그인 처리 중입니다...
       </Text>
     </View>
   );
