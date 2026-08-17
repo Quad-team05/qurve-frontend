@@ -10,7 +10,7 @@ type SocialLoginResult =
   | { success: false; cancelled: true }
   | { success: false; cancelled: false; message: string };
 
-type SocialProvider = 'kakao' | 'naver';
+type SocialProvider = 'kakao' | 'naver' | 'google';
 
 function getSocialBaseUrl() {
   return API_BASE_URL.replace(/\/api\/?$/, '');
@@ -85,4 +85,8 @@ export async function loginWithKakao(): Promise<SocialLoginResult> {
 
 export async function loginWithNaver(): Promise<SocialLoginResult> {
   return loginWithProvider('naver', '네이버');
+}
+
+export async function loginWithGoogle(): Promise<SocialLoginResult> {
+  return loginWithProvider('google', '구글');
 }
