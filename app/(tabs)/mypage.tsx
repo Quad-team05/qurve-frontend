@@ -2,8 +2,8 @@ import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { withdraw } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
-import { clearAuthSession } from '@/lib/auth/session';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
+import { clearAuthSession } from '@/lib/auth/session';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
@@ -130,17 +130,6 @@ export default function MyPage() {
         <View className="overflow-hidden rounded-sm border border-border bg-white">
           <Pressable
             className="flex-row items-center justify-between border-b border-border px-4 py-4"
-            onPress={() => router.push('/(app)/mypage/badges')}
-          >
-            <View className="flex-row items-center gap-x-3">
-              <Text style={{ fontSize: 18 }}>🎖️</Text>
-              <Text className="font-regular text-sm text-btn-dark">배지 관리</Text>
-            </View>
-            <Text className="font-regular text-sm text-text-brown">›</Text>
-          </Pressable>
-
-          <Pressable
-            className="flex-row items-center justify-between border-b border-border px-4 py-4"
             onPress={() => router.push('/(app)/mypage/challenge')}
           >
             <View className="flex-row items-center gap-x-3">
@@ -156,7 +145,18 @@ export default function MyPage() {
           >
             <View className="flex-row items-center gap-x-3">
               <Text style={{ fontSize: 18 }}>📊</Text>
-              <Text className="font-regular text-sm text-btn-dark">레벨 / 배지</Text>
+              <Text className="font-regular text-sm text-btn-dark">내 활동 내역</Text>
+            </View>
+            <Text className="font-regular text-sm text-text-brown">›</Text>
+          </Pressable>
+
+          <Pressable
+            className="flex-row items-center justify-between border-b border-border px-4 py-4"
+            onPress={() => router.push('/(app)/mypage/badge')}
+          >
+            <View className="flex-row items-center gap-x-3">
+              <Text style={{ fontSize: 18 }}>🎖️</Text>
+              <Text className="font-regular text-sm text-btn-dark">배지 관리</Text>
             </View>
             <Text className="font-regular text-sm text-text-brown">›</Text>
           </Pressable>
