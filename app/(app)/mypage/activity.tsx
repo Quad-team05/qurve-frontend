@@ -21,8 +21,19 @@ const xpDays = [
   { day: '일', xp: 0, done: false },
 ];
 
+// TODO: 서버 API 연동 전까지 목데이터
+const weeklyGoal = {
+  status: '진행 중',
+  currentMinutes: 200, // 3시간 20분
+  targetMinutes: 300, // 5시간
+};
+
 export default function ActivityPage() {
   const router = useRouter();
+
+  const weeklyPercent = Math.round((weeklyGoal.currentMinutes / weeklyGoal.targetMinutes) * 100);
+  const weeklyCurrentLabel = `${Math.floor(weeklyGoal.currentMinutes / 60)}시간 ${weeklyGoal.currentMinutes % 60}분`;
+  const weeklyTargetLabel = `${Math.floor(weeklyGoal.targetMinutes / 60)}시간`;
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -131,9 +142,46 @@ export default function ActivityPage() {
           <Text className="mt-1.5 font-regular text-[10px] text-text-brown">48분 / 1일</Text>
         </View>
 
-        {/* ④ XP 획득 기록 */}
+        {/* ④ 이번 주 목표 */}
+        <Text className="font-regular text-xs text-text-brown">④ 이번 주 목표</Text>
+        <View className="rounded-sm border border-border bg-white p-4">
+          <View className="mb-1 flex-row items-center justify-between">
+            <Text className="font-semiBold text-sm text-btn-dark">이번 주 목표</Text>
+            <View
+              style={{
+                backgroundColor: GREEN_LIGHT,
+                borderWidth: 0.5,
+                borderColor: GREEN_MID,
+                borderRadius: 10,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+              }}
+            >
+              <Text style={{ fontSize: 11, color: GREEN }}>{weeklyGoal.status}</Text>
+            </View>
+          </View>
+          <Text className="mb-2.5 font-regular text-xs text-text-brown">
+            이번 주 학습시간 목표를 채워보세요!
+          </Text>
+          <View className="h-1 rounded-full bg-[#EDE8DE]">
+            <View
+              className="h-1 rounded-full"
+              style={{ backgroundColor: GREEN, width: `${weeklyPercent}%` }}
+            />
+          </View>
+          <View className="mt-1.5 flex-row justify-between">
+            <Text className="font-regular text-[10px] text-text-brown">
+              {weeklyCurrentLabel} / {weeklyTargetLabel}
+            </Text>
+            <Text className="font-regular text-[10px]" style={{ color: GREEN }}>
+              {weeklyPercent}%
+            </Text>
+          </View>
+        </View>
+
+        {/* ⑤ XP 획득 기록 */}
         <View className="flex-row items-center justify-between">
-          <Text className="font-regular text-xs text-text-brown">④ XP 획득 기록 (이번 주)</Text>
+          <Text className="font-regular text-xs text-text-brown">⑤ XP 획득 기록 (이번 주)</Text>
           <Pressable onPress={() => router.push('/(app)/mypage/xp-history')}>
             <Text className="font-regular text-xs" style={{ color: GREEN }}>
               전체 보기 &gt;
@@ -164,7 +212,7 @@ export default function ActivityPage() {
           </View>
         </View>
 
-        {/* ⑤ 레벨 가이드 */}
+        {/* ⑥ 레벨 가이드 */}
         <Pressable
           className="flex-row items-center justify-between rounded-sm border border-border bg-white px-4 py-4"
           onPress={() => router.push('/(app)/mypage/level-guide')}
