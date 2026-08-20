@@ -5,6 +5,7 @@ export type ProblemSession = {
   problems: ProblemItem[];
   startedAt: number;
   finishedAt: number | null;
+  currentQuestionIndex: number;
   selectedChoiceNumbers: Record<number, number | null>;
   submissions: Record<number, ProblemSubmitResult>;
   bookmarks: Record<number, boolean>;
@@ -18,6 +19,7 @@ export function createProblemSession(request: ProblemListRequest, problems: Prob
     problems,
     startedAt: Date.now(),
     finishedAt: null,
+    currentQuestionIndex: 0,
     selectedChoiceNumbers: Object.fromEntries(problems.map((problem) => [problem.problemId, null])),
     submissions: {},
     bookmarks: {},
@@ -28,6 +30,11 @@ export function createProblemSession(request: ProblemListRequest, problems: Prob
 
 export function getProblemSession() {
   return currentProblemSession;
+}
+
+export function setProblemCurrentQuestionIndex(questionIndex: number) {
+  if (!currentProblemSession) return;
+  currentProblemSession.currentQuestionIndex = questionIndex;
 }
 
 export function setProblemSelection(problemId: number, choiceNumber: number | null) {

@@ -8,6 +8,7 @@ import {
   completeProblemSession,
   createProblemSession,
   getProblemSession,
+  setProblemCurrentQuestionIndex,
   setProblemSelection,
   setProblemSubmission,
 } from '@/lib/learning/problem-session';
@@ -278,7 +279,11 @@ export default function SolveProblemPage() {
 
   const handlePrev = () => {
     if (currentQuestionIndex === 0) return;
-    setCurrentQuestionIndex((prev) => prev - 1);
+    setCurrentQuestionIndex((prev) => {
+      const next = prev - 1;
+      setProblemCurrentQuestionIndex(next);
+      return next;
+    });
   };
 
   const handleNext = async () => {
@@ -292,24 +297,33 @@ export default function SolveProblemPage() {
     try {
       setIsSubmitting(true);
 
-      const problemSession = getProblemSession();
-      const existingSubmission = problemSession?.submissions[currentQuestion.problemId];
+      if (currentQuestionIndex === totalProblemCount - 1) {
+        const submissionTasks = problems.map(async (problem, index) => {
+          const choiceNumber = selectedByQuestion[index];
 
-      if (!existingSubmission || existingSubmission.selectedChoiceNumber !== selectedChoiceNumber) {
-        const submission = await submitProblem(currentQuestion.problemId, {
-          selectedChoiceNumber,
+          if (choiceNumber === null) {
+            return null;
+          }
+
+          const submission = await submitProblem(problem.problemId, {
+            selectedChoiceNumber: choiceNumber,
+          });
+
+          setProblemSubmission(problem.problemId, submission);
+          return submission;
         });
 
-        setProblemSubmission(currentQuestion.problemId, submission);
-      }
-
-      if (currentQuestionIndex === totalProblemCount - 1) {
+        await Promise.all(submissionTasks);
         completeProblemSession();
         router.push('/(app)/learning/problems/result');
         return;
       }
 
-      setCurrentQuestionIndex((prev) => prev + 1);
+      setCurrentQuestionIndex((prev) => {
+        const next = prev + 1;
+        setProblemCurrentQuestionIndex(next);
+        return next;
+      });
     } catch (error) {
       showToast(error instanceof ApiError ? error.message : '문제 제출에 실패했습니다.');
     } finally {
