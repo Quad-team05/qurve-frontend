@@ -77,7 +77,16 @@ export default function TodayProblemsPage() {
 
         <Pressable
           className="mt-4 h-[50px] items-center justify-center rounded-xl bg-btn-dark"
-          onPress={() => router.push('/(app)/learning/problems/solve')}
+          onPress={() =>
+            router.push({
+              pathname: '/(app)/learning/problems/solve',
+              params: {
+                category: todayLearning?.category ?? '문자/어휘',
+                subType: todayLearning?.title ?? '문맥규정',
+                count: String(todayLearning?.totalQuestionCount ?? 20),
+              },
+            })
+          }
         >
           <Text className="font-bold text-base text-white">시작하기</Text>
         </Pressable>
