@@ -31,6 +31,8 @@ export type ProblemListData = {
   level: JlptLevel;
   category: ProblemCategory;
   subType: ProblemSubType;
+  totalProblemCount: number;
+  offset: number;
   problemCount: number;
   problems: ProblemItem[];
 };
@@ -40,6 +42,7 @@ export type ProblemListRequest = {
   category: ProblemCategory;
   subType: ProblemSubType;
   count?: number;
+  offset?: number;
 };
 
 export type ProblemSubmitRequest = {
@@ -80,6 +83,10 @@ export async function getProblems(request: ProblemListRequest) {
 
   if (typeof request.count === 'number' && request.count > 0) {
     params.set('count', String(request.count));
+  }
+
+  if (typeof request.offset === 'number' && request.offset >= 0) {
+    params.set('offset', String(request.offset));
   }
 
   const response = await apiFetch<ApiResponse<ProblemListData>>(`/problems?${params.toString()}`, {

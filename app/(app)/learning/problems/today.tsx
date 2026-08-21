@@ -3,9 +3,14 @@ import TopBar from '@/components/ui/TopBar';
 import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
 import { ApiError } from '@/lib/api/client';
 import { clearAuthSession } from '@/lib/auth/session';
+import {
+  getCompletedProblemSession,
+  loadCompletedProblemSession,
+  type ProblemSession,
+} from '@/lib/learning/problem-session';
 import { useRouter } from 'expo-router';
 import { Alert, Platform, Pressable, ToastAndroid, View } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const cardShadowStyle = {
@@ -25,15 +30,39 @@ function showToast(message: string) {
   Alert.alert(message);
 }
 
+function isSameTodayLearningSession(
+  todayLearning: TodayLearning | null,
+  completedSession: ProblemSession | null,
+) {
+  if (!todayLearning || !completedSession) {
+    return false;
+  }
+
+  return (
+    completedSession.request.level === todayLearning.level &&
+    completedSession.request.category === todayLearning.categoryCode &&
+    completedSession.request.subType === todayLearning.subTypeCode &&
+    completedSession.request.offset === todayLearning.offset &&
+    completedSession.request.count === todayLearning.totalQuestionCount
+  );
+}
+
 export default function TodayProblemsPage() {
   const router = useRouter();
   const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
+  const [completedSession, setCompletedSession] = useState<ProblemSession | null>(() =>
+    getCompletedProblemSession(),
+  );
 
   useEffect(() => {
     const loadTodayLearning = async () => {
       try {
-        const result = await getTodayLearning();
+        const [result, savedSession] = await Promise.all([
+          getTodayLearning(),
+          loadCompletedProblemSession(),
+        ]);
         setTodayLearning(result);
+        setCompletedSession(savedSession);
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           await clearAuthSession();
@@ -47,6 +76,34 @@ export default function TodayProblemsPage() {
 
     void loadTodayLearning();
   }, [router]);
+
+  const completedSummary = useMemo(() => {
+    if (!completedSession) return null;
+
+    const totalCount = completedSession.problems.length;
+    const correctCount = completedSession.problems.reduce((count, problem) => {
+      if (completedSession.submissions[problem.problemId]?.correct) {
+        return count + 1;
+      }
+
+      return count;
+    }, 0);
+
+    return {
+      totalCount,
+      correctCount,
+      wrongCount: totalCount - correctCount,
+    };
+  }, [completedSession]);
+
+  const hasCompletedTodayLearning = Boolean(
+    completedSummary && isSameTodayLearningSession(todayLearning, completedSession),
+  );
+  const safeCompletedSummary = completedSummary ?? {
+    totalCount: 0,
+    correctCount: 0,
+    wrongCount: 0,
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -75,21 +132,57 @@ export default function TodayProblemsPage() {
           </Text>
         </View>
 
-        <Pressable
-          className="mt-4 h-[50px] items-center justify-center rounded-xl bg-btn-dark"
-          onPress={() =>
-            router.push({
-              pathname: '/(app)/learning/problems/solve',
-              params: {
-                category: todayLearning?.category ?? '문자/어휘',
-                subType: todayLearning?.title ?? '문맥규정',
-                count: String(todayLearning?.totalQuestionCount ?? 20),
-              },
-            })
-          }
-        >
-          <Text className="font-bold text-base text-white">시작하기</Text>
-        </Pressable>
+        {!hasCompletedTodayLearning ? (
+          <Pressable
+            className="mt-4 h-[50px] items-center justify-center rounded-xl bg-btn-dark"
+            onPress={() =>
+              router.push({
+                pathname: '/(app)/learning/problems/solve',
+                params: {
+                  level: todayLearning?.level ?? 'N5',
+                  category: todayLearning?.categoryCode ?? 'LANGUAGE_KNOWLEDGE',
+                  subType: todayLearning?.subTypeCode ?? 'CONTEXT_VOCABULARY',
+                  count: String(todayLearning?.totalQuestionCount ?? 20),
+                  offset: String(todayLearning?.offset ?? 0),
+                  categoryLabel: todayLearning?.category ?? '문자/어휘',
+                  subTypeLabel: todayLearning?.title ?? '문맥규정',
+                },
+              })
+            }
+          >
+            <Text className="font-bold text-base text-white">시작하기</Text>
+          </Pressable>
+        ) : null}
+
+        {hasCompletedTodayLearning ? (
+          <View className="mt-4 rounded-sm border border-border bg-white p-4">
+            <Text className="text-xs text-text-brown">최근 제출한 오늘의 학습</Text>
+            <Text className="mt-2 text-sm text-[#2A2018]">
+              • 총 {safeCompletedSummary.totalCount}문제
+            </Text>
+            <Text className="mt-2 text-sm text-[#059669]">
+              • 맞은 문제: {safeCompletedSummary.correctCount}개
+            </Text>
+            <Text className="mt-2 text-sm text-[#CC4444]">
+              • 틀린 문제: {safeCompletedSummary.wrongCount}개
+            </Text>
+
+            <View className="mt-4 flex-row gap-3">
+              <Pressable
+                className="h-[46px] flex-1 items-center justify-center rounded-xl border border-border bg-white"
+                onPress={() => router.push('/(app)/learning/problems/result')}
+              >
+                <Text className="font-bold text-sm text-[#2A2018]">결과 보기</Text>
+              </Pressable>
+              <Pressable
+                className="h-[46px] flex-1 items-center justify-center rounded-xl bg-btn-dark"
+                onPress={() => router.push('/(app)/learning/problems/review')}
+              >
+                <Text className="font-bold text-sm text-white">풀이 보기</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );

@@ -9,9 +9,12 @@ import {
 } from '@/lib/api/problem';
 import {
   clearProblemSession,
+  getCompletedProblemSession,
   getProblemSession,
+  loadCompletedProblemSession,
   setProblemBookmarkState,
   setProblemSubmission,
+  type ProblemSession,
 } from '@/lib/learning/problem-session';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -93,7 +96,9 @@ function toSubmissionResult(
 
 export default function ReviewProblemPage() {
   const router = useRouter();
-  const problemSession = getProblemSession();
+  const [problemSession, setProblemSession] = useState<ProblemSession | null>(
+    () => getProblemSession() ?? getCompletedProblemSession(),
+  );
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [submissionsByProblemId, setSubmissionsByProblemId] = useState<
     Record<number, ProblemSubmitResult>
@@ -102,6 +107,29 @@ export default function ReviewProblemPage() {
     () => problemSession?.bookmarks ?? {},
   );
   const [isBookmarkSubmitting, setIsBookmarkSubmitting] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeSession = async () => {
+      const savedSession = await loadCompletedProblemSession();
+      if (!mounted || !savedSession) return;
+
+      setProblemSession((prev) => prev ?? savedSession);
+      setSubmissionsByProblemId((prev) =>
+        Object.keys(prev).length > 0 ? prev : (savedSession.submissions ?? {}),
+      );
+      setBookmarkedByProblemId((prev) =>
+        Object.keys(prev).length > 0 ? prev : (savedSession.bookmarks ?? {}),
+      );
+    };
+
+    void initializeSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const currentQuestion = problemSession?.problems[currentQuestionIndex];
   const totalProblemCount = problemSession?.problems.length ?? 0;
@@ -199,7 +227,7 @@ export default function ReviewProblemPage() {
   const answerLabel = useMemo(() => {
     if (!currentSubmission) return '';
 
-    return `${currentSubmission.answerChoiceNumber}. ${currentSubmission.answerChoiceText}`;
+    return `${currentSubmission.answerChoiceNumber + 1}. ${currentSubmission.answerChoiceText}`;
   }, [currentSubmission]);
 
   if (!problemSession || !currentQuestion) {
@@ -266,7 +294,7 @@ export default function ReviewProblemPage() {
                   <Text
                     className={`text-sm font-semibold ${selected ? 'text-gray' : 'text-[#2A2018]'}`}
                   >
-                    {choice.choiceNumber}. {choice.choiceText}
+                    {choice.choiceNumber + 1}. {choice.choiceText}
                   </Text>
                 </View>
               );
