@@ -8,6 +8,10 @@ type ApiResponse<T> = {
 };
 
 export type TodayLearning = {
+  level: string;
+  categoryCode: string;
+  subTypeCode: string;
+  offset: number;
   category: string;
   title: string;
   totalQuestionCount: number;

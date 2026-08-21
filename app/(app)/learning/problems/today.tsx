@@ -30,6 +30,23 @@ function showToast(message: string) {
   Alert.alert(message);
 }
 
+function isSameTodayLearningSession(
+  todayLearning: TodayLearning | null,
+  completedSession: ProblemSession | null,
+) {
+  if (!todayLearning || !completedSession) {
+    return false;
+  }
+
+  return (
+    completedSession.request.level === todayLearning.level &&
+    completedSession.request.category === todayLearning.categoryCode &&
+    completedSession.request.subType === todayLearning.subTypeCode &&
+    completedSession.request.offset === todayLearning.offset &&
+    completedSession.request.count === todayLearning.totalQuestionCount
+  );
+}
+
 export default function TodayProblemsPage() {
   const router = useRouter();
   const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
@@ -79,7 +96,9 @@ export default function TodayProblemsPage() {
     };
   }, [completedSession]);
 
-  const hasCompletedTodayLearning = Boolean(completedSession && completedSummary);
+  const hasCompletedTodayLearning = Boolean(
+    completedSummary && isSameTodayLearningSession(todayLearning, completedSession),
+  );
   const safeCompletedSummary = completedSummary ?? {
     totalCount: 0,
     correctCount: 0,
@@ -120,9 +139,13 @@ export default function TodayProblemsPage() {
               router.push({
                 pathname: '/(app)/learning/problems/solve',
                 params: {
-                  category: todayLearning?.category ?? '문자/어휘',
-                  subType: todayLearning?.title ?? '문맥규정',
+                  level: todayLearning?.level ?? 'N5',
+                  category: todayLearning?.categoryCode ?? 'LANGUAGE_KNOWLEDGE',
+                  subType: todayLearning?.subTypeCode ?? 'CONTEXT_VOCABULARY',
                   count: String(todayLearning?.totalQuestionCount ?? 20),
+                  offset: String(todayLearning?.offset ?? 0),
+                  categoryLabel: todayLearning?.category ?? '문자/어휘',
+                  subTypeLabel: todayLearning?.title ?? '문맥규정',
                 },
               })
             }

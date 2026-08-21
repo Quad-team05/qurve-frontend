@@ -20,10 +20,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const DEFAULT_CATEGORY = '문자/어휘';
-const DEFAULT_SUB_TYPE = '문맥규정';
+const DEFAULT_CATEGORY = 'LANGUAGE_KNOWLEDGE';
+const DEFAULT_SUB_TYPE = 'CONTEXT_VOCABULARY';
+const DEFAULT_CATEGORY_LABEL = '문자/어휘';
+const DEFAULT_SUB_TYPE_LABEL = '문맥규정';
 const DEFAULT_LEVEL: JlptLevel = 'N5';
 const DEFAULT_COUNT = 20;
+const DEFAULT_OFFSET = 0;
 const FALLBACK_LEVELS: JlptLevel[] = ['N5', 'N4'];
 
 const questionCardShadowStyle = {
@@ -56,12 +59,24 @@ function parseCount(value?: string | string[]) {
   return DEFAULT_COUNT;
 }
 
+function parseOffset(value?: string | string[]) {
+  const offset = Number(normalizeParam(value));
+
+  if (Number.isFinite(offset) && offset >= 0) return offset;
+
+  return DEFAULT_OFFSET;
+}
+
 function mapCurrentLevelToJlptLevel(currentLevel: number | null | undefined): JlptLevel {
   if (currentLevel && currentLevel >= 1 && currentLevel <= 5) {
     return `N${currentLevel}` as JlptLevel;
   }
 
   return DEFAULT_LEVEL;
+}
+
+function isJlptLevel(value?: string): value is JlptLevel {
+  return value === 'N1' || value === 'N2' || value === 'N3' || value === 'N4' || value === 'N5';
 }
 
 function mapCategoryToApiValue(category: string) {
@@ -91,6 +106,45 @@ function mapSubTypeToApiValue(subType: string) {
       return 'READING_COMPREHENSION';
     default:
       return subType;
+  }
+}
+
+function mapCategoryToLabel(category: string) {
+  switch (category) {
+    case 'LANGUAGE_KNOWLEDGE':
+      return '문자/어휘';
+    case 'GRAMMAR':
+      return '문법';
+    case 'READING':
+      return '독해';
+    default:
+      return category;
+  }
+}
+
+function mapSubTypeToLabel(subType: string) {
+  switch (subType) {
+    case 'CONTEXT_VOCABULARY':
+      return '문맥규정';
+    case 'KANJI_READING':
+      return '한자 읽기';
+    case 'USAGE':
+      return '용법';
+    case 'GRAMMAR_PATTERN':
+      return '문형';
+    case 'READING_COMPREHENSION':
+      return '독해';
+    default:
+      return subType;
+  }
+}
+
+function mapQuestionFormatToLabel(questionFormat?: string) {
+  switch (questionFormat) {
+    case 'MULTIPLE_CHOICE':
+      return '객관식';
+    default:
+      return questionFormat || '객관식';
   }
 }
 
@@ -169,16 +223,30 @@ function renderPassageText(passageText: string) {
 export default function SolveProblemPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{
+    level?: string | string[];
     category?: string | string[];
     subType?: string | string[];
     count?: string | string[];
+    offset?: string | string[];
+    categoryLabel?: string | string[];
+    subTypeLabel?: string | string[];
   }>();
 
+  const rawLevel = normalizeParam(params.level);
+  const levelParam = isJlptLevel(rawLevel) ? rawLevel : undefined;
   const category = normalizeParam(params.category) || DEFAULT_CATEGORY;
   const subType = normalizeParam(params.subType) || DEFAULT_SUB_TYPE;
   const count = useMemo(() => parseCount(params.count), [params.count]);
+  const offset = useMemo(() => parseOffset(params.offset), [params.offset]);
   const apiCategory = useMemo(() => mapCategoryToApiValue(category), [category]);
   const apiSubType = useMemo(() => mapSubTypeToApiValue(subType), [subType]);
+  const categoryLabel =
+    normalizeParam(params.categoryLabel) ||
+    mapCategoryToLabel(apiCategory) ||
+    DEFAULT_CATEGORY_LABEL;
+  const subTypeLabel =
+    normalizeParam(params.subTypeLabel) || mapSubTypeToLabel(apiSubType) || DEFAULT_SUB_TYPE_LABEL;
+  const displaySubTypeLabel = useMemo(() => mapSubTypeToLabel(subTypeLabel), [subTypeLabel]);
 
   const [problems, setProblems] = useState<ProblemItem[]>([]);
   const [selectedByQuestion, setSelectedByQuestion] = useState<(number | null)[]>([]);
@@ -200,8 +268,10 @@ export default function SolveProblemPage() {
         const completedSession =
           getCompletedProblemSession() ?? (await loadCompletedProblemSession());
         const isSameTodayLearning =
+          completedSession?.request.level === (levelParam ?? completedSession?.request.level) &&
           completedSession?.request.category === apiCategory &&
-          completedSession?.request.subType === apiSubType;
+          completedSession?.request.subType === apiSubType &&
+          completedSession?.request.offset === offset;
 
         if (isSameTodayLearning) {
           showToast('이미 제출한 오늘의 학습입니다.');
@@ -209,11 +279,11 @@ export default function SolveProblemPage() {
           return;
         }
 
-        const profile = await getMyProfile();
-        const preferredLevel = mapCurrentLevelToJlptLevel(profile.currentLevel);
-        const candidateLevels = buildLevelCandidates(preferredLevel);
+        const candidateLevels = levelParam
+          ? [levelParam]
+          : buildLevelCandidates(mapCurrentLevelToJlptLevel((await getMyProfile()).currentLevel));
         let response = null;
-        let resolvedLevel = preferredLevel;
+        let resolvedLevel = levelParam ?? DEFAULT_LEVEL;
         let lastProblemNotFoundError: ApiError | null = null;
 
         for (const level of candidateLevels) {
@@ -223,6 +293,7 @@ export default function SolveProblemPage() {
               category: apiCategory,
               subType: apiSubType,
               count,
+              offset,
             });
             resolvedLevel = level;
             break;
@@ -251,6 +322,7 @@ export default function SolveProblemPage() {
             category: apiCategory,
             subType: apiSubType,
             count: response.problemCount,
+            offset: response.offset,
           },
           response.problems,
         );
@@ -271,7 +343,7 @@ export default function SolveProblemPage() {
     return () => {
       mounted = false;
     };
-  }, [apiCategory, apiSubType, count, retryCount, router]);
+  }, [apiCategory, apiSubType, count, levelParam, offset, retryCount, router]);
 
   const currentQuestion = problems[currentQuestionIndex];
   const totalProblemCount = problems.length;
@@ -365,11 +437,11 @@ export default function SolveProblemPage() {
         <View className="mb-4 flex-row gap-2">
           <Pressable className="rounded-sm border border-border bg-white px-4 py-2">
             <Text className="text-xs font-semibold text-text-brown">
-              {currentQuestion?.questionFormat || '객관식'}
+              {mapQuestionFormatToLabel(currentQuestion?.questionFormat)}
             </Text>
           </Pressable>
           <Pressable className="rounded-sm border border-border bg-white px-4 py-2">
-            <Text className="text-xs font-semibold text-text-brown">{subType}</Text>
+            <Text className="text-xs font-semibold text-text-brown">{displaySubTypeLabel}</Text>
           </Pressable>
         </View>
 
