@@ -113,9 +113,16 @@ export function setProblemSelection(problemId: number, choiceNumber: number | nu
 }
 
 export function setProblemSubmission(problemId: number, submission: ProblemSubmitResult) {
-  if (!currentProblemSession) return;
-  currentProblemSession.submissions[problemId] = submission;
-  currentProblemSession.selectedChoiceNumbers[problemId] = submission.selectedChoiceNumber;
+  if (currentProblemSession) {
+    currentProblemSession.submissions[problemId] = submission;
+    currentProblemSession.selectedChoiceNumbers[problemId] = submission.selectedChoiceNumber;
+  }
+
+  if (completedProblemSession) {
+    completedProblemSession.submissions[problemId] = submission;
+    completedProblemSession.selectedChoiceNumbers[problemId] = submission.selectedChoiceNumber;
+    void persistCompletedProblemSession();
+  }
 }
 
 export function setProblemBookmarkState(problemId: number, bookmarked: boolean) {
