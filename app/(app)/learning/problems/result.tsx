@@ -1,15 +1,18 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import { ApiError } from '@/lib/api/client';
+import { getProblemSolution, type ProblemSubmitResult } from '@/lib/api/problem';
 import {
   clearProblemSession,
   getCompletedProblemSession,
   getProblemSession,
   loadCompletedProblemSession,
+  setProblemSubmission,
   type ProblemSession,
 } from '@/lib/learning/problem-session';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Alert, Platform, Pressable, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const cardShadowStyle = {
@@ -19,6 +22,30 @@ const cardShadowStyle = {
   shadowOffset: { width: 0, height: 1 },
   elevation: 1,
 } as const;
+
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
+
+function toSubmissionResult(
+  problemId: number,
+  solution: Awaited<ReturnType<typeof getProblemSolution>>['solutions'][number],
+) {
+  return {
+    problemId,
+    submissionId: solution.submissionId,
+    selectedChoiceNumber: solution.selectedChoiceNumber,
+    answerChoiceNumber: solution.answerChoiceNumber,
+    answerChoiceText: solution.answerChoiceText,
+    correct: solution.correct,
+    explanation: solution.explanation,
+  } satisfies ProblemSubmitResult;
+}
 
 export default function LearningResultPage() {
   const router = useRouter();
@@ -42,6 +69,55 @@ export default function LearningResultPage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadLatestResults = async () => {
+      if (!problemSession || problemSession.problems.length === 0) return;
+
+      try {
+        const solutions = await Promise.all(
+          problemSession.problems.map(async (problem) => {
+            const result = await getProblemSolution(problem.problemId);
+            const latestSolution = result.solutions[0];
+
+            if (!latestSolution) return null;
+
+            return toSubmissionResult(problem.problemId, latestSolution);
+          }),
+        );
+
+        if (!mounted) return;
+
+        setProblemSession((prev) => {
+          if (!prev) return prev;
+
+          const nextSubmissions = { ...prev.submissions };
+
+          solutions.forEach((solution) => {
+            if (!solution) return;
+            nextSubmissions[solution.problemId] = solution;
+            setProblemSubmission(solution.problemId, solution);
+          });
+
+          return {
+            ...prev,
+            submissions: nextSubmissions,
+          };
+        });
+      } catch (error) {
+        if (!mounted) return;
+        showToast(error instanceof ApiError ? error.message : '문제 결과를 불러오지 못했습니다.');
+      }
+    };
+
+    void loadLatestResults();
+
+    return () => {
+      mounted = false;
+    };
+  }, [problemSession?.problems]);
 
   const summary = useMemo(() => {
     if (!problemSession) {

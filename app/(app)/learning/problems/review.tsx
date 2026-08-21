@@ -38,6 +38,32 @@ function showToast(message: string) {
   Alert.alert(message);
 }
 
+function mapSubTypeToLabel(subType?: string) {
+  switch (subType) {
+    case 'CONTEXT_VOCABULARY':
+      return '문맥규정';
+    case 'KANJI_READING':
+      return '한자 읽기';
+    case 'USAGE':
+      return '용법';
+    case 'GRAMMAR_PATTERN':
+      return '문형';
+    case 'READING_COMPREHENSION':
+      return '독해';
+    default:
+      return subType || '문맥규정';
+  }
+}
+
+function mapQuestionFormatToLabel(questionFormat?: string) {
+  switch (questionFormat) {
+    case 'MULTIPLE_CHOICE':
+      return '객관식';
+    default:
+      return questionFormat || '객관식';
+  }
+}
+
 function renderPassageText(passageText: string) {
   const normalizedText = passageText?.trim();
 
@@ -139,7 +165,6 @@ export default function ReviewProblemPage() {
 
     const loadSolution = async () => {
       if (!currentQuestion) return;
-      if (submissionsByProblemId[currentQuestion.problemId]) return;
 
       try {
         const result = await getProblemSolution(currentQuestion.problemId);
@@ -168,7 +193,7 @@ export default function ReviewProblemPage() {
     return () => {
       mounted = false;
     };
-  }, [currentQuestion, submissionsByProblemId]);
+  }, [currentQuestion]);
 
   const currentSubmission = currentQuestion
     ? (submissionsByProblemId[currentQuestion.problemId] ?? null)
@@ -259,11 +284,13 @@ export default function ReviewProblemPage() {
         <View className="mb-4 flex-row gap-2">
           <Pressable className="rounded-sm border border-border bg-white px-4 py-2">
             <Text className="text-xs font-semibold text-text-brown">
-              {currentQuestion.questionFormat || '객관식'}
+              {mapQuestionFormatToLabel(currentQuestion.questionFormat)}
             </Text>
           </Pressable>
           <Pressable className="rounded-sm border border-border bg-white px-4 py-2">
-            <Text className="text-xs font-semibold text-text-brown">{currentQuestion.subType}</Text>
+            <Text className="text-xs font-semibold text-text-brown">
+              {mapSubTypeToLabel(currentQuestion.subType)}
+            </Text>
           </Pressable>
         </View>
 
