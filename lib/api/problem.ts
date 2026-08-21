@@ -130,3 +130,11 @@ export async function removeProblemBookmark(problemId: number) {
     method: 'DELETE',
   });
 }
+
+export async function getProblemBookmarks() {
+  const response = await apiFetch<ApiResponse<ProblemItem[]>>('/problems/bookmarks', {
+    method: 'GET',
+  });
+
+  return response.data;
+}
