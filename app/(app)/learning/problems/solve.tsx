@@ -7,7 +7,9 @@ import {
   clearProblemSession,
   completeProblemSession,
   createProblemSession,
+  getCompletedProblemSession,
   getProblemSession,
+  loadCompletedProblemSession,
   setProblemCurrentQuestionIndex,
   setProblemSelection,
   setProblemSubmission,
@@ -195,6 +197,18 @@ export default function SolveProblemPage() {
         setIsLoading(true);
         setErrorMessage('');
 
+        const completedSession =
+          getCompletedProblemSession() ?? (await loadCompletedProblemSession());
+        const isSameTodayLearning =
+          completedSession?.request.category === apiCategory &&
+          completedSession?.request.subType === apiSubType;
+
+        if (isSameTodayLearning) {
+          showToast('이미 제출한 오늘의 학습입니다.');
+          router.replace('/(app)/learning/problems/today');
+          return;
+        }
+
         const profile = await getMyProfile();
         const preferredLevel = mapCurrentLevelToJlptLevel(profile.currentLevel);
         const candidateLevels = buildLevelCandidates(preferredLevel);
@@ -257,7 +271,7 @@ export default function SolveProblemPage() {
     return () => {
       mounted = false;
     };
-  }, [apiCategory, apiSubType, count, retryCount]);
+  }, [apiCategory, apiSubType, count, retryCount, router]);
 
   const currentQuestion = problems[currentQuestionIndex];
   const totalProblemCount = problems.length;
@@ -409,7 +423,7 @@ export default function SolveProblemPage() {
                       <Text
                         className={`text-sm font-semibold ${selected ? 'text-gray' : 'text-[#2A2018]'}`}
                       >
-                        {choice.choiceNumber}. {choice.choiceText}
+                        {choice.choiceNumber + 1}. {choice.choiceText}
                       </Text>
                     </Pressable>
                   );

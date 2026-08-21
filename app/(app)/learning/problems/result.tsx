@@ -1,8 +1,14 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { clearProblemSession, getProblemSession } from '@/lib/learning/problem-session';
+import {
+  clearProblemSession,
+  getCompletedProblemSession,
+  getProblemSession,
+  loadCompletedProblemSession,
+  type ProblemSession,
+} from '@/lib/learning/problem-session';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,7 +22,26 @@ const cardShadowStyle = {
 
 export default function LearningResultPage() {
   const router = useRouter();
-  const problemSession = getProblemSession();
+  const [problemSession, setProblemSession] = useState<ProblemSession | null>(
+    () => getProblemSession() ?? getCompletedProblemSession(),
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeSession = async () => {
+      const savedSession = await loadCompletedProblemSession();
+      if (!mounted) return;
+
+      setProblemSession((prev) => prev ?? savedSession);
+    };
+
+    void initializeSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const summary = useMemo(() => {
     if (!problemSession) {
