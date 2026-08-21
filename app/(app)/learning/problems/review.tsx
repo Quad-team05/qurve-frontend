@@ -3,6 +3,7 @@ import TopBar from '@/components/ui/TopBar';
 import { ApiError } from '@/lib/api/client';
 import {
   addProblemBookmark,
+  getProblemBookmarks,
   getProblemSolution,
   removeProblemBookmark,
   type ProblemSubmitResult,
@@ -156,6 +157,41 @@ export default function ReviewProblemPage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadBookmarks = async () => {
+      if (!problemSession?.problems.length) return;
+
+      try {
+        const bookmarks = await getProblemBookmarks();
+
+        if (!mounted) return;
+
+        const bookmarkedProblemIds = new Set(bookmarks.map((problem) => problem.problemId));
+        const nextBookmarks = Object.fromEntries(
+          problemSession.problems.map((problem) => [
+            problem.problemId,
+            bookmarkedProblemIds.has(problem.problemId),
+          ]),
+        ) as Record<number, boolean>;
+
+        setBookmarkedByProblemId(nextBookmarks);
+        problemSession.problems.forEach((problem) => {
+          setProblemBookmarkState(problem.problemId, bookmarkedProblemIds.has(problem.problemId));
+        });
+      } catch {
+        if (!mounted) return;
+      }
+    };
+
+    void loadBookmarks();
+
+    return () => {
+      mounted = false;
+    };
+  }, [problemSession]);
 
   const currentQuestion = problemSession?.problems[currentQuestionIndex];
   const totalProblemCount = problemSession?.problems.length ?? 0;
