@@ -10,6 +10,8 @@ type SocialLoginResult =
   | { success: false; cancelled: true }
   | { success: false; cancelled: false; message: string };
 
+type SocialProvider = 'kakao' | 'naver' | 'google';
+
 function getSocialBaseUrl() {
   return API_BASE_URL.replace(/\/api\/?$/, '');
 }
@@ -29,8 +31,11 @@ function extractTokens(callbackUrl: string) {
   };
 }
 
-export async function loginWithKakao(): Promise<SocialLoginResult> {
-  const loginUrl = `${getSocialBaseUrl()}/oauth2/authorization/kakao`;
+async function loginWithProvider(
+  provider: SocialProvider,
+  providerLabel: string,
+): Promise<SocialLoginResult> {
+  const loginUrl = `${getSocialBaseUrl()}/oauth2/authorization/${provider}`;
   const redirectUrl = Linking.createURL('auth/social-callback');
 
   try {
@@ -44,7 +49,7 @@ export async function loginWithKakao(): Promise<SocialLoginResult> {
       return {
         success: false,
         cancelled: false,
-        message: '카카오 로그인에 실패했습니다.',
+        message: `${providerLabel} 로그인에 실패했습니다.`,
       };
     }
 
@@ -54,7 +59,7 @@ export async function loginWithKakao(): Promise<SocialLoginResult> {
       return {
         success: false,
         cancelled: false,
-        message: '카카오 로그인 응답을 확인할 수 없습니다.',
+        message: `${providerLabel} 로그인 응답을 확인할 수 없습니다.`,
       };
     }
 
@@ -69,7 +74,19 @@ export async function loginWithKakao(): Promise<SocialLoginResult> {
     return {
       success: false,
       cancelled: false,
-      message: '카카오 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      message: `${providerLabel} 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.`,
     };
   }
+}
+
+export async function loginWithKakao(): Promise<SocialLoginResult> {
+  return loginWithProvider('kakao', '카카오');
+}
+
+export async function loginWithNaver(): Promise<SocialLoginResult> {
+  return loginWithProvider('naver', '네이버');
+}
+
+export async function loginWithGoogle(): Promise<SocialLoginResult> {
+  return loginWithProvider('google', '구글');
 }
