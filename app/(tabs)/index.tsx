@@ -1,4 +1,5 @@
 import Text from '@/components/ui/AppText';
+import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import { ApiError } from '@/lib/api/client';
 import { clearAuthSession, consumeNeedsLevelTest } from '@/lib/auth/session';
@@ -21,6 +22,7 @@ export default function HomeScreen() {
   const days = ['월', '화', '수', '목', '금', '토', '일'];
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -60,6 +62,25 @@ export default function HomeScreen() {
     };
 
     void loadProfile();
+  }, [router]);
+
+  useEffect(() => {
+    const loadTodayLearning = async () => {
+      try {
+        const result = await getTodayLearning();
+        setTodayLearning(result);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearAuthSession();
+          router.replace('/(app)/auth/login');
+          return;
+        }
+
+        showToast('오늘의 학습 정보를 불러오지 못했습니다.');
+      }
+    };
+
+    void loadTodayLearning();
   }, [router]);
 
   return (
@@ -170,9 +191,14 @@ export default function HomeScreen() {
             onPress={() => router.push('/(app)/learning/problems/today')}
           >
             <Text className="mb-1 font-regular text-xs text-text-brown">오늘의 학습</Text>
-            <Text className="font-semiBold text-lg text-btn-dark">문자/어휘 · 문맥규정</Text>
+            <Text className="font-semiBold text-lg text-btn-dark">
+              {todayLearning
+                ? `${todayLearning.category} · ${todayLearning.title}`
+                : '문자/어휘 · 문맥규정'}
+            </Text>
             <Text className="mt-0.5 font-regular text-xs text-text-brown">
-              총 20문제 · 예상 10분
+              총 {todayLearning?.totalQuestionCount ?? 20}문제 · 예상{' '}
+              {todayLearning?.estimatedMinutes ?? 10}분
             </Text>
             <Text className="font-semiBold mt-2 self-end text-sm text-text-brown">
               학습하러 가기 →
