@@ -1,6 +1,9 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import { getBadges } from '@/lib/api/badge';
+import { getTodayXp, getXpStat, getXpWeekly, type XpDaily, type XpStat } from '@/lib/api/xp';
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,29 +14,83 @@ const BORDER = '#E0D8C8';
 const TEXT = '#2A2018';
 const TEXT3 = '#A09080';
 
-const xpDays = [
-  { day: '월', xp: 80, done: true },
-  { day: '화', xp: 60, done: true },
-  { day: '수', xp: 120, done: true, highlight: true },
-  { day: '목', xp: 70, done: true },
-  { day: '금', xp: 90, done: true },
-  { day: '토', xp: 0, done: false },
-  { day: '일', xp: 0, done: false },
-];
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
-// TODO: 서버 API 연동 전까지 목데이터
+type XpDayDisplay = { day: string; xp: number; done: boolean; highlight: boolean };
+
+// TODO: 이번 주 목표 조회 API 나오면 교체
 const weeklyGoal = {
   status: '진행 중',
   currentMinutes: 200, // 3시간 20분
   targetMinutes: 300, // 5시간
 };
 
+function formatXpDaysForDisplay(weekly: XpDaily[]): XpDayDisplay[] {
+  const maxXp = Math.max(0, ...weekly.map((d) => d.xpAmount));
+
+  return weekly.map((d) => {
+    const dayOfWeek = new Date(d.date).getDay();
+    return {
+      day: DAY_LABELS[dayOfWeek],
+      xp: d.xpAmount,
+      done: d.xpAmount > 0,
+      highlight: maxXp > 0 && d.xpAmount === maxXp,
+    };
+  });
+}
+
 export default function ActivityPage() {
   const router = useRouter();
+
+  const [xpStat, setXpStat] = useState<XpStat | null>(null);
+  const [xpDays, setXpDays] = useState<XpDayDisplay[]>([]);
+  const [todayXp, setTodayXp] = useState<number | null>(null);
+  const [badgeAchievedCount, setBadgeAchievedCount] = useState<number | null>(null);
+  const [badgeTotalCount, setBadgeTotalCount] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const [stat, weekly, today, badgeList] = await Promise.all([
+          getXpStat(),
+          getXpWeekly(),
+          getTodayXp(),
+          getBadges(),
+        ]);
+
+        setXpStat(stat);
+        setXpDays(formatXpDaysForDisplay(weekly));
+        setTodayXp(today.totalXp);
+        setBadgeAchievedCount(badgeList.achievedCount);
+        setBadgeTotalCount(badgeList.totalCount);
+      } catch (error) {
+        // TODO: 에러 토스트/재시도 처리
+        console.error('활동 데이터를 불러오지 못했습니다.', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadData();
+  }, []);
 
   const weeklyPercent = Math.round((weeklyGoal.currentMinutes / weeklyGoal.targetMinutes) * 100);
   const weeklyCurrentLabel = `${Math.floor(weeklyGoal.currentMinutes / 60)}시간 ${weeklyGoal.currentMinutes % 60}분`;
   const weeklyTargetLabel = `${Math.floor(weeklyGoal.targetMinutes / 60)}시간`;
+
+  const levelProgressPercent =
+    xpStat && xpStat.nextLevelXp > xpStat.currentLevelXp
+      ? Math.min(
+          100,
+          Math.round(
+            ((xpStat.totalXp - xpStat.currentLevelXp) /
+              (xpStat.nextLevelXp - xpStat.currentLevelXp)) *
+              100,
+          ),
+        )
+      : 0;
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -63,17 +120,30 @@ export default function ActivityPage() {
                 <Text style={{ fontSize: 20 }}>🌳</Text>
               </View>
               <View>
-                <Text className="font-regular text-xs text-text-brown">Lv.18</Text>
-                <Text className="font-semiBold text-base text-btn-dark">독해 학습자</Text>
+                <Text className="font-regular text-xs text-text-brown">
+                  {isLoading ? '불러오는 중...' : `Lv.${xpStat?.currentLevel ?? '-'}`}
+                </Text>
+                <Text className="font-semiBold text-base text-btn-dark">
+                  {isLoading ? '-' : (xpStat?.title ?? '-')}
+                </Text>
               </View>
             </View>
             <View className="h-1.5 rounded-full bg-[#EDE8DE]">
-              <View className="h-1.5 w-[73%] rounded-full" style={{ backgroundColor: GREEN }} />
+              <View
+                className="h-1.5 rounded-full"
+                style={{ backgroundColor: GREEN, width: `${levelProgressPercent}%` }}
+              />
             </View>
             <View className="mt-1.5 flex-row justify-between">
-              <Text className="font-regular text-[10px] text-text-brown">10,300 / 11,700 XP</Text>
               <Text className="font-regular text-[10px] text-text-brown">
-                다음 레벨까지 1,400 XP
+                {isLoading
+                  ? '- / -'
+                  : `${xpStat?.totalXp.toLocaleString() ?? '-'} / ${xpStat?.nextLevelXp.toLocaleString() ?? '-'} XP`}
+              </Text>
+              <Text className="font-regular text-[10px] text-text-brown">
+                {isLoading
+                  ? '-'
+                  : `다음 레벨까지 ${xpStat?.xpToNextLevel.toLocaleString() ?? '-'} XP`}
               </Text>
             </View>
           </View>
@@ -96,7 +166,11 @@ export default function ActivityPage() {
               <Text style={{ fontSize: 18 }}>🏅</Text>
               <View>
                 <Text style={{ fontSize: 12, fontWeight: '600', color: GREEN }}>나의 배지</Text>
-                <Text style={{ fontSize: 10, color: TEXT3 }}>10개 달성 / 48개</Text>
+                <Text style={{ fontSize: 10, color: TEXT3 }}>
+                  {isLoading
+                    ? '-'
+                    : `${badgeAchievedCount ?? '-'}개 달성 / ${badgeTotalCount ?? '-'}개`}
+                </Text>
               </View>
             </View>
             <Text style={{ fontSize: 12, color: GREEN }}>보러가기 →</Text>
@@ -107,10 +181,16 @@ export default function ActivityPage() {
         <Text className="font-regular text-xs text-text-brown">② 상세 현황</Text>
         <View className="flex-row flex-wrap gap-2.5">
           {[
-            { label: '누적 XP', value: '10,300 XP' },
-            { label: '현재 레벨', value: 'Lv.18' },
-            { label: '다음 레벨까지', value: '1,400 XP' },
-            { label: '연속 학습', value: '14일' },
+            {
+              label: '누적 XP',
+              value: isLoading ? '-' : `${xpStat?.totalXp.toLocaleString() ?? '-'} XP`,
+            },
+            { label: '현재 레벨', value: isLoading ? '-' : `Lv.${xpStat?.currentLevel ?? '-'}` },
+            {
+              label: '다음 레벨까지',
+              value: isLoading ? '-' : `${xpStat?.xpToNextLevel.toLocaleString() ?? '-'} XP`,
+            },
+            { label: '연속 학습', value: isLoading ? '-' : `${xpStat?.streakDays ?? '-'}일` },
           ].map((item, i) => (
             <View
               key={i}
@@ -129,17 +209,16 @@ export default function ActivityPage() {
           ))}
         </View>
 
-        {/* ③ 일일 목표 */}
-        <Text className="font-regular text-xs text-text-brown">③ 일일 목표</Text>
+        {/* ③ 오늘 획득 XP */}
+        <Text className="font-regular text-xs text-text-brown">③ 오늘 획득 XP</Text>
         <View className="rounded-sm border border-border bg-white p-4">
-          <Text className="font-semiBold mb-1 text-sm text-btn-dark">일일 목표</Text>
+          <Text className="font-semiBold mb-1 text-sm text-btn-dark">오늘 획득 XP</Text>
           <Text className="mb-2.5 font-regular text-xs text-text-brown">
-            일일 목표 달성 시 보너스 XP를 획득해요!
+            오늘 학습으로 획득한 XP예요!
           </Text>
-          <View className="h-1 rounded-full bg-[#EDE8DE]">
-            <View className="h-1 w-[60%] rounded-full" style={{ backgroundColor: GREEN }} />
-          </View>
-          <Text className="mt-1.5 font-regular text-[10px] text-text-brown">48분 / 1일</Text>
+          <Text className="font-semiBold text-2xl text-btn-dark">
+            {isLoading ? '-' : `+${todayXp ?? 0} XP`}
+          </Text>
         </View>
 
         {/* ④ 이번 주 목표 */}
@@ -190,7 +269,7 @@ export default function ActivityPage() {
         </View>
         <View className="rounded-sm border border-border bg-white p-4">
           <View className="flex-row justify-between">
-            {xpDays.map((d, i) => (
+            {(isLoading ? [] : xpDays).map((d, i) => (
               <View key={i} className="items-center gap-y-1">
                 <Text style={{ fontSize: 10, fontWeight: '600', color: d.done ? TEXT : TEXT3 }}>
                   {d.done ? `+${d.xp}` : '-'}

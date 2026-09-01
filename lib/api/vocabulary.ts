@@ -53,3 +53,43 @@ export async function getVocabWords(level: JlptLevel, unitNumber: number) {
 
   return response.data;
 }
+
+export async function addVocabBookmark(wordId: number) {
+  await apiFetch<ApiResponse<null>>(`/vocabularies/bookmarks/${wordId}`, {
+    method: 'POST',
+  });
+}
+
+export async function removeVocabBookmark(wordId: number) {
+  await apiFetch<ApiResponse<null>>(`/vocabularies/bookmarks/${wordId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function startVocabUnit(level: JlptLevel, unitNumber: number) {
+  await apiFetch<ApiResponse<null>>(
+    `/vocabularies/units/${unitNumber}/start?level=${encodeURIComponent(level)}`,
+    { method: 'PATCH' },
+  );
+}
+
+export async function completeVocabUnit(level: JlptLevel, unitNumber: number) {
+  await apiFetch<ApiResponse<null>>(
+    `/vocabularies/units/${unitNumber}/complete?level=${encodeURIComponent(level)}`,
+    { method: 'PATCH' },
+  );
+}
+
+export async function getChallengeWords() {
+  const response = await apiFetch<ApiResponse<VocabWord[]>>('/vocabularies/challenge-words', {
+    method: 'GET',
+  });
+  return response.data;
+}
+
+export async function getBookmarkedWords() {
+  const response = await apiFetch<ApiResponse<VocabWord[]>>('/vocabularies/bookmarks', {
+    method: 'GET',
+  });
+  return response.data;
+}

@@ -1,6 +1,7 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { useState } from 'react';
+import { getBadges, type Badge, type BadgeCategory } from '@/lib/api/badge';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,57 +11,6 @@ const GREEN_MID = '#A7F3D0';
 const BORDER = '#E0D8C8';
 const TEXT = '#2A2018';
 const TEXT3 = '#A09080';
-
-const allBadges = [
-  { icon: '🐣', name: '첫 발걸음', cat: '출석', done: true },
-  { icon: '🐥', name: '3일 개근', cat: '출석', done: true },
-  { icon: '🐓', name: '7일 개근', cat: '출석', done: true },
-  { icon: '🦅', name: '30일 개근', cat: '출석', done: false },
-  { icon: '🦁', name: '100일 개근', cat: '출석', done: false },
-  { icon: '🐉', name: '365일 개근', cat: '출석', done: false },
-  { icon: '🌱', name: '첫 학습', cat: '학습', done: true },
-  { icon: '🌿', name: '새싹 학습자', cat: '학습', done: true },
-  { icon: '🌳', name: '성실한 학습자', cat: '학습', done: false },
-  { icon: '🌲', name: '학습 고수', cat: '학습', done: false },
-  { icon: '🎄', name: '학습 전설', cat: '학습', done: false },
-  { icon: '🎯', name: '첫 정답', cat: '정답률', done: true },
-  { icon: '🎪', name: '절반은 맞춰', cat: '정답률', done: true },
-  { icon: '🎓', name: '우등생', cat: '정답률', done: false },
-  { icon: '👑', name: '만점왕', cat: '정답률', done: false },
-  { icon: '💥', name: '연속 만점', cat: '정답률', done: false },
-  { icon: '🔍', name: '첫 복습', cat: '오답노트', done: true },
-  { icon: '🔎', name: '복습 습관', cat: '오답노트', done: false },
-  { icon: '🦾', name: '오답 극복', cat: '오답노트', done: false },
-  { icon: '🧩', name: '오답 마스터', cat: '오답노트', done: false },
-  { icon: '🌰', name: '단어 입문', cat: '단어', done: true },
-  { icon: '🍀', name: '단어 수집가', cat: '단어', done: true },
-  { icon: '🌺', name: '단어 마스터', cat: '단어', done: false },
-  { icon: '🌸', name: '단어 박사', cat: '단어', done: false },
-  { icon: '🌻', name: '단어 전설', cat: '단어', done: false },
-  { icon: '🔖', name: '북마크 시작', cat: '단어', done: true },
-  { icon: '📌', name: '북마크 수집가', cat: '단어', done: false },
-  { icon: '🏁', name: '첫 도전', cat: '챌린지', done: true },
-  { icon: '🥉', name: '도전 완료', cat: '챌린지', done: true },
-  { icon: '🥈', name: '도전 중급', cat: '챌린지', done: false },
-  { icon: '🥇', name: '도전 고수', cat: '챌린지', done: false },
-  { icon: '🏆', name: '챌린지 왕', cat: '챌린지', done: false },
-  { icon: '🎖️', name: '챌린지 전설', cat: '챌린지', done: false },
-  { icon: '⏰', name: '첫 1시간', cat: '학습시간', done: true },
-  { icon: '🕙', name: '10시간 돌파', cat: '학습시간', done: false },
-  { icon: '🕔', name: '50시간 돌파', cat: '학습시간', done: false },
-  { icon: '🕐', name: '100시간 돌파', cat: '학습시간', done: false },
-  { icon: '⌚', name: '500시간 돌파', cat: '학습시간', done: false },
-  { icon: '🚀', name: '첫 레벨업', cat: '급수', done: true },
-  { icon: '🌱', name: 'N5 마스터', cat: '급수', done: false },
-  { icon: '🌿', name: 'N4 마스터', cat: '급수', done: false },
-  { icon: '🌳', name: 'N3 마스터', cat: '급수', done: false },
-  { icon: '🌲', name: 'N2 마스터', cat: '급수', done: false },
-  { icon: '🎋', name: 'N1 마스터', cat: '급수', done: false },
-  { icon: '🎌', name: 'JLPT 정복자', cat: '급수', done: false },
-  { icon: '💬', name: 'AI 첫 대화', cat: 'AI', done: true },
-  { icon: '🗣️', name: 'AI 단골', cat: 'AI', done: false },
-  { icon: '🤝', name: 'AI 친구', cat: 'AI', done: false },
-];
 
 const categories = [
   '전체',
@@ -73,15 +23,51 @@ const categories = [
   '학습시간',
   '급수',
   'AI',
-];
+] as const;
+
+const CATEGORY_MAP: Record<BadgeCategory, (typeof categories)[number]> = {
+  ATTENDANCE: '출석',
+  LEARNING: '학습',
+  ACCURACY: '정답률',
+  WRONG_NOTE: '오답노트',
+  VOCABULARY: '단어',
+  CHALLENGE: '챌린지',
+  STUDY_TIME: '학습시간',
+  LEVEL: '급수',
+  AI: 'AI',
+};
 
 export default function BadgePage() {
   const [activeTab, setActiveTab] = useState(0);
-  const [selectedBadge, setSelectedBadge] = useState<(typeof allBadges)[0] | null>(null);
+  const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [achievedCount, setAchievedCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadBadges = async () => {
+      try {
+        setIsLoading(true);
+        const result = await getBadges();
+        setBadges(result.badges);
+        setTotalCount(result.totalCount);
+        setAchievedCount(result.achievedCount);
+      } catch (error) {
+        // TODO: 에러 토스트 처리
+        console.error('배지 정보를 불러오지 못했습니다.', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadBadges();
+  }, []);
 
   const filtered =
-    activeTab === 0 ? allBadges : allBadges.filter((b) => b.cat === categories[activeTab]);
-  const doneCnt = allBadges.filter((b) => b.done).length;
+    activeTab === 0
+      ? badges
+      : badges.filter((b) => CATEGORY_MAP[b.category] === categories[activeTab]);
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -109,7 +95,10 @@ export default function BadgePage() {
               배지 달성 현황
             </Text>
             <Text className="font-semiBold text-btn-dark" style={{ fontSize: 22 }}>
-              {doneCnt}개 <Text className="font-regular text-sm text-text-brown">/ 48개</Text>
+              {isLoading ? '-' : achievedCount}개{' '}
+              <Text className="font-regular text-sm text-text-brown">
+                / {isLoading ? '-' : totalCount}개
+              </Text>
             </Text>
           </View>
           <Text style={{ fontSize: 32 }}>🏅</Text>
@@ -164,35 +153,35 @@ export default function BadgePage() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20 }}
       >
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
-          {filtered.map((b, i) => (
+          {filtered.map((b) => (
             <Pressable
-              key={i}
-              onPress={() => b.done && setSelectedBadge(b)}
+              key={b.code}
+              onPress={() => b.achieved && setSelectedBadge(b)}
               style={{
                 width: '30%',
-                backgroundColor: b.done ? '#fff' : '#F0EDE8',
+                backgroundColor: b.achieved ? '#fff' : '#F0EDE8',
                 borderWidth: 0.5,
-                borderColor: b.done ? BORDER : '#E8E4DE',
+                borderColor: b.achieved ? BORDER : '#E8E4DE',
                 borderRadius: 8,
                 padding: 14,
                 alignItems: 'center',
                 gap: 6,
-                opacity: b.done ? 1 : 0.5,
+                opacity: b.achieved ? 1 : 0.5,
               }}
             >
-              <Text style={{ fontSize: 28 }}>{b.icon}</Text>
+              <Text style={{ fontSize: 28 }}>{b.emoji}</Text>
               <Text
                 style={{
                   fontSize: 10,
                   fontWeight: '600',
-                  color: b.done ? TEXT : TEXT3,
+                  color: b.achieved ? TEXT : TEXT3,
                   textAlign: 'center',
                   lineHeight: 14,
                 }}
               >
                 {b.name}
               </Text>
-              {b.done && (
+              {b.achieved && (
                 <View
                   style={{
                     width: 16,
@@ -248,7 +237,7 @@ export default function BadgePage() {
               }}
               onPress={() => {}}
             >
-              <Text style={{ fontSize: 56, marginBottom: 12 }}>{selectedBadge?.icon}</Text>
+              <Text style={{ fontSize: 56, marginBottom: 12 }}>{selectedBadge?.emoji}</Text>
               <Text
                 style={{
                   fontSize: 11,
@@ -264,7 +253,7 @@ export default function BadgePage() {
                 {selectedBadge?.name}
               </Text>
               <Text style={{ fontSize: 12, color: TEXT3, marginBottom: 24 }}>
-                {selectedBadge?.name} 배지를 달성했어요! 🎉
+                {selectedBadge?.description}
               </Text>
               <Pressable
                 style={{
