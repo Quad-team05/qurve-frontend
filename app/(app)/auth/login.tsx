@@ -5,6 +5,7 @@ import Text from '@/components/ui/AppText';
 import TextInput from '@/components/ui/AppTextInput';
 import { ApiError } from '@/lib/api/client';
 import { login } from '@/lib/api/auth';
+import { loginWithGoogle, loginWithKakao, loginWithNaver } from '@/lib/auth/social-login';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Platform, Pressable, ToastAndroid, View } from 'react-native';
@@ -25,6 +26,9 @@ export default function LoginPage() {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isKakaoSubmitting, setIsKakaoSubmitting] = useState(false);
+  const [isNaverSubmitting, setIsNaverSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
   const hasEmptyField = !loginId.trim() || !password.trim();
   const isLoginDisabled = isSubmitting;
@@ -54,6 +58,66 @@ export default function LoginPage() {
       showToast('로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleKakaoLogin = async () => {
+    if (isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting) return;
+
+    try {
+      setIsKakaoSubmitting(true);
+      const result = await loginWithKakao();
+
+      if (result.success) {
+        router.replace('/(tabs)');
+        return;
+      }
+
+      if (!result.cancelled) {
+        showToast(result.message);
+      }
+    } finally {
+      setIsKakaoSubmitting(false);
+    }
+  };
+
+  const handleNaverLogin = async () => {
+    if (isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting) return;
+
+    try {
+      setIsNaverSubmitting(true);
+      const result = await loginWithNaver();
+
+      if (result.success) {
+        router.replace('/(tabs)');
+        return;
+      }
+
+      if (!result.cancelled) {
+        showToast(result.message);
+      }
+    } finally {
+      setIsNaverSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting) return;
+
+    try {
+      setIsGoogleSubmitting(true);
+      const result = await loginWithGoogle();
+
+      if (result.success) {
+        router.replace('/(tabs)');
+        return;
+      }
+
+      if (!result.cancelled) {
+        showToast(result.message);
+      }
+    } finally {
+      setIsGoogleSubmitting(false);
     }
   };
 
@@ -119,13 +183,25 @@ export default function LoginPage() {
       <View className="ml-[301px] h-[10px] w-[50px] rounded-[1px] bg-[#B8D4F0]" />
       <View className="border border-border bg-white px-[70px] py-4">
         <View className="flex-row items-center justify-center gap-11">
-          <Pressable className="h-[36px] w-[36px] items-center justify-center rounded-sm border border-border bg-white">
+          <Pressable
+            className="h-[36px] w-[36px] items-center justify-center rounded-sm border border-border bg-white"
+            disabled={isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting}
+            onPress={handleKakaoLogin}
+          >
             <KakaoIcon width={32} height={32} />
           </Pressable>
-          <Pressable className="h-[36px] w-[36px] items-center justify-center rounded-sm border border-border bg-white">
+          <Pressable
+            className="h-[36px] w-[36px] items-center justify-center rounded-sm border border-border bg-white"
+            disabled={isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting}
+            onPress={handleNaverLogin}
+          >
             <NaverIcon width={32} height={32} />
           </Pressable>
-          <Pressable className="h-[36px] w-[36px] items-center justify-center rounded-sm border border-border bg-white">
+          <Pressable
+            className="h-[36px] w-[36px] items-center justify-center rounded-sm border border-border bg-white"
+            disabled={isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting}
+            onPress={handleGoogleLogin}
+          >
             <GoogleIcon width={32} height={32} />
           </Pressable>
         </View>

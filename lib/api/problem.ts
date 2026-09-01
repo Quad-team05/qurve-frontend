@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api/client';
+import type { JlptLevel } from '@/lib/api/vocabulary';
 
 type ApiResponse<T> = {
   success: boolean;
@@ -7,6 +8,9 @@ type ApiResponse<T> = {
   code: string;
 };
 
+export type ProblemCategory = string;
+export type ProblemSubType = string;
+
 export type ProblemChoice = {
   choiceNumber: number;
   choiceText: string;
@@ -14,9 +18,9 @@ export type ProblemChoice = {
 
 export type Problem = {
   problemId: number;
-  level: string;
-  category: string;
-  subType: string;
+  level: JlptLevel;
+  category: ProblemCategory;
+  subType: ProblemSubType;
   questionFormat: string;
   questionText: string;
   passageText: string | null;
@@ -24,17 +28,17 @@ export type Problem = {
 };
 
 export type ProblemListRequest = {
-  level: string;
-  category: string;
-  subType: string;
+  level: JlptLevel;
+  category: ProblemCategory;
+  subType: ProblemSubType;
   count?: number;
   offset?: number;
 };
 
 export type ProblemList = {
-  level: string;
-  category: string;
-  subType: string;
+  level: JlptLevel;
+  category: ProblemCategory;
+  subType: ProblemSubType;
   totalProblemCount: number;
   offset: number;
   problemCount: number;
@@ -102,12 +106,20 @@ export async function getProblems(request: ProblemListRequest) {
     level: request.level,
     category: request.category,
     subType: request.subType,
-    ...(request.count != null ? { count: String(request.count) } : {}),
-    ...(request.offset != null ? { offset: String(request.offset) } : {}),
   });
+
+  if (typeof request.count === 'number' && request.count > 0) {
+    params.set('count', String(request.count));
+  }
+
+  if (typeof request.offset === 'number' && request.offset >= 0) {
+    params.set('offset', String(request.offset));
+  }
+
   const response = await apiFetch<ApiResponse<ProblemList>>(`/problems?${params.toString()}`, {
     method: 'GET',
   });
+
   return response.data;
 }
 
@@ -119,6 +131,7 @@ export async function submitProblem(problemId: number, selectedChoiceNumber: num
       body: JSON.stringify({ selectedChoiceNumber }),
     },
   );
+
   return response.data;
 }
 
@@ -130,6 +143,7 @@ export async function completeProblemSet(problemIds: number[]) {
       body: JSON.stringify({ problemIds }),
     },
   );
+
   return response.data;
 }
 
@@ -138,6 +152,7 @@ export async function getProblemSolution(problemId: number) {
     `/problems/${problemId}/solution`,
     { method: 'GET' },
   );
+
   return response.data;
 }
 
@@ -145,6 +160,7 @@ export async function getProblemAccuracy() {
   const response = await apiFetch<ApiResponse<ProblemAccuracy>>('/problems/accuracy', {
     method: 'GET',
   });
+
   return response.data;
 }
 
@@ -152,6 +168,7 @@ export async function getProblemAccuracyTrend() {
   const response = await apiFetch<ApiResponse<ProblemAccuracyTrend>>('/problems/accuracy/trend', {
     method: 'GET',
   });
+
   return response.data;
 }
 
@@ -171,5 +188,6 @@ export async function getBookmarkedProblems() {
   const response = await apiFetch<ApiResponse<Problem[]>>('/problems/bookmarks', {
     method: 'GET',
   });
+
   return response.data;
 }

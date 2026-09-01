@@ -1,14 +1,26 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import { ApiError } from '@/lib/api/client';
+import { clearAuthSession } from '@/lib/auth/session';
 import { type Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Goal = 'JLPT' | '실생활 일본어';
 type JlptLevel = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
 type LifeLevel = 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5';
 type Level = JlptLevel | LifeLevel;
+
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
 
 function Radio({ selected }: { selected: boolean }) {
   return (
@@ -108,6 +120,26 @@ export default function StudyPage() {
   // TODO: 사용자 정보 API 연동 예정 - 레벨테스트 결과값
   const lifeLevel: LifeLevel = 'Level 2';
   const [modalVisible, setModalVisible] = useState(false);
+  const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
+
+  useEffect(() => {
+    const loadTodayLearning = async () => {
+      try {
+        const result = await getTodayLearning();
+        setTodayLearning(result);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearAuthSession();
+          router.replace('/(app)/auth/login');
+          return;
+        }
+
+        showToast('오늘의 학습 정보를 불러오지 못했습니다.');
+      }
+    };
+
+    void loadTodayLearning();
+  }, [router]);
 
   const handleConfirm = (newGoal: Goal, newJlptLevel: JlptLevel) => {
     setGoal(newGoal);
@@ -182,9 +214,14 @@ export default function StudyPage() {
             onPress={() => moveTo('/(app)/learning/problems/today')}
           >
             <Text className="mb-1 font-regular text-xs text-text-brown">오늘의 학습</Text>
-            <Text className="font-bold text-lg text-btn-dark">문자/어휘 · 문맥규정</Text>
+            <Text className="font-bold text-lg text-btn-dark">
+              {todayLearning
+                ? `${todayLearning.category} · ${todayLearning.title}`
+                : '문자/어휘 · 문맥규정'}
+            </Text>
             <Text className="mt-0.5 font-regular text-xs text-text-brown">
-              총 20문제 · 예상 10분
+              총 {todayLearning?.totalQuestionCount ?? 20}문제 · 예상{' '}
+              {todayLearning?.estimatedMinutes ?? 10}분
             </Text>
             <Text className="mt-2 self-end font-bold text-sm text-text-brown">학습하기 →</Text>
           </Pressable>
