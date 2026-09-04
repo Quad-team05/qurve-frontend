@@ -1,4 +1,5 @@
 import Text from '@/components/ui/AppText';
+import { clearAiChat, sendAiChatMessage } from '@/lib/api/ai';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
@@ -44,22 +45,43 @@ export default function ChatPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const hasMessages = messages.length > 0;
 
-  const sendMessage = (text: string) => {
-    if (!text.trim()) return;
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || isSending) return;
+
     const userMsg: Message = { role: 'user', text: text.trim() };
-    const aiMsg: Message = {
-      role: 'ai',
-      text: `"${text.trim()}"에 대해 알려드릴게요! 열심히 공부하고 있군요 😊`,
-    };
-    setMessages((prev) => [...prev, userMsg, aiMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+
+    try {
+      setIsSending(true);
+      const result = await sendAiChatMessage(text.trim());
+      const aiMsg: Message = { role: 'ai', text: result.message };
+      setMessages((prev) => [...prev, aiMsg]);
+    } catch {
+      const errorMsg: Message = {
+        role: 'ai',
+        text: '죄송해요, 지금은 답변할 수 없어요. 잠시 후 다시 시도해주세요.',
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsSending(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
   };
 
-  const resetChat = () => setMessages([]);
+  const resetChat = async () => {
+    setMessages([]);
+    try {
+      await clearAiChat();
+    } catch {
+      // 초기화 실패해도 화면상으로는 이미 비워졌으니 조용히 무시
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -188,8 +210,7 @@ export default function ChatPage() {
                     }}
                   >
                     <Text className="font-regular text-sm text-btn-dark" style={{ lineHeight: 20 }}>
-                      안녕하세요 선정 님! 🔥{'\n'}오늘 학습 어떠셨나요? 궁금한 점이 있으면 편하게
-                      물어봐요!
+                      안녕하세요! 🔥{'\n'}오늘 학습 어떠셨나요? 궁금한 점이 있으면 편하게 물어봐요!
                     </Text>
                   </View>
                 </View>
@@ -303,63 +324,38 @@ export default function ChatPage() {
               ),
             )}
 
-            {/* 분석 카드 */}
-            {messages.length >= 4 && (
-              <View style={{ position: 'relative', marginTop: 12 }}>
+            {isSending && (
+              <View className="flex-row items-start gap-x-2.5">
                 <View
                   style={{
-                    position: 'absolute',
-                    top: -8,
-                    left: '50%',
-                    width: 50,
-                    height: 13,
-                    backgroundColor: '#B8E8C0',
-                    opacity: 0.78,
-                    borderRadius: 2,
-                    zIndex: 1,
-                    transform: [{ translateX: -25 }],
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: GREEN_LIGHT,
+                    borderWidth: 1,
+                    borderColor: GREEN_MID,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
                   }}
-                />
+                >
+                  <RobotIcon size={20} color={TEXT} />
+                </View>
                 <View
                   style={{
                     backgroundColor: '#fff',
                     borderWidth: 0.5,
                     borderColor: BORDER,
-                    borderRadius: 8,
-                    padding: 14,
-                    paddingTop: 18,
+                    borderTopRightRadius: 8,
+                    borderBottomRightRadius: 8,
+                    borderBottomLeftRadius: 8,
+                    padding: 12,
+                    marginTop: 8,
                   }}
                 >
-                  <Text
-                    className="mb-3 font-regular"
-                    style={{ fontSize: 10, color: TEXT3, fontStyle: 'italic' }}
-                  >
-                    오늘 정답률 58%를 분석해봤어요! 🔍
+                  <Text className="font-regular text-sm text-text-brown">
+                    답변을 준비 중이에요...
                   </Text>
-                  <Text className="font-semiBold mb-2 text-xs text-btn-dark">틀린 유형 TOP 3</Text>
-                  {[
-                    ['1. 문맥규정', '7문제'],
-                    ['2. 어휘', '4문제'],
-                    ['3. 문법', '2문제'],
-                  ].map(([label, count], i) => (
-                    <View
-                      key={i}
-                      className="flex-row justify-between py-2"
-                      style={{
-                        borderBottomWidth: i < 2 ? 0.5 : 0,
-                        borderBottomColor: BORDER,
-                        borderStyle: 'dashed',
-                      }}
-                    >
-                      <Text className="font-regular text-xs text-btn-dark">{label}</Text>
-                      <Text className="font-regular text-xs text-text-brown">{count}</Text>
-                    </View>
-                  ))}
-                  <Pressable onPress={() => router.push('/(app)/learning/wrong-note/list')}>
-                    <Text className="mt-3 font-regular text-xs text-text-brown">
-                      문맥규정 집중 복습을 추천해요! 오답노트에서 확인해볼까요? →
-                    </Text>
-                  </Pressable>
                 </View>
               </View>
             )}
@@ -385,17 +381,19 @@ export default function ChatPage() {
             value={input}
             onChangeText={setInput}
             onSubmitEditing={() => sendMessage(input)}
+            editable={!isSending}
           />
           <Pressable
             style={{
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: input.trim() ? '#2A2018' : '#C8C0B0',
+              backgroundColor: input.trim() && !isSending ? '#2A2018' : '#C8C0B0',
               alignItems: 'center',
               justifyContent: 'center',
             }}
             onPress={() => sendMessage(input)}
+            disabled={isSending}
           >
             <Text style={{ color: '#fff', fontSize: 16 }}>↑</Text>
           </Pressable>

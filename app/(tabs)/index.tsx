@@ -1,4 +1,5 @@
 import Text from '@/components/ui/AppText';
+import { getAttendance, type Attendance } from '@/lib/api/attendance';
 import {
   CHALLENGE_GOAL_TYPE_TARGET_UNITS,
   getChallengesForMain,
@@ -8,6 +9,7 @@ import {
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
 import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import { getProblemAccuracy, type ProblemAccuracy } from '@/lib/api/problem';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import { clearAuthSession, consumeNeedsLevelTest } from '@/lib/auth/session';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -58,9 +60,20 @@ function toMainChallenge(challenge: {
   };
 }
 
+const DAY_LABELS: Record<string, string> = {
+  MON: '월',
+  TUE: '화',
+  WED: '수',
+  THU: '목',
+  FRI: '금',
+  SAT: '토',
+  SUN: '일',
+};
+
+const DAILY_STUDY_GOAL_MINUTES = 60;
+
 export default function HomeScreen() {
   const router = useRouter();
-  const days = ['월', '화', '수', '목', '금', '토', '일'];
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
@@ -68,6 +81,10 @@ export default function HomeScreen() {
   const [isChallengeLoading, setIsChallengeLoading] = useState(true);
   const [challengeErrorMessage, setChallengeErrorMessage] = useState('');
   const hasLoadedChallenges = useRef(false);
+
+  const [attendance, setAttendance] = useState<Attendance | null>(null);
+  const [isAttendanceLoading, setIsAttendanceLoading] = useState(true);
+  const [problemAccuracy, setProblemAccuracy] = useState<ProblemAccuracy | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -174,6 +191,52 @@ export default function HomeScreen() {
     void loadTodayLearning();
   }, [router]);
 
+  useEffect(() => {
+    const loadAttendance = async () => {
+      try {
+        setIsAttendanceLoading(true);
+        const result = await getAttendance();
+        setAttendance(result);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearAuthSession();
+          router.replace('/(app)/auth/login');
+          return;
+        }
+
+        showToast('출석 정보를 불러오지 못했습니다.');
+      } finally {
+        setIsAttendanceLoading(false);
+      }
+    };
+
+    void loadAttendance();
+  }, [router]);
+
+  useEffect(() => {
+    const loadProblemAccuracy = async () => {
+      try {
+        const result = await getProblemAccuracy();
+        setProblemAccuracy(result);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearAuthSession();
+          router.replace('/(app)/auth/login');
+          return;
+        }
+        // 정답률은 화면 핵심 흐름이 아니므로 토스트 없이 조용히 실패 처리
+      }
+    };
+
+    void loadProblemAccuracy();
+  }, [router]);
+
+  const todayStudyMinutes = 20; // TODO: learning.ts의 getStudyTimeStatistics 연동 예정
+  const studyProgressWidth = `${Math.min(
+    100,
+    Math.round((todayStudyMinutes / DAILY_STUDY_GOAL_MINUTES) * 100),
+  )}%` as `${number}%`;
+
   return (
     <SafeAreaView className="flex-1 bg-bg">
       {/* 헤더 */}
@@ -194,18 +257,24 @@ export default function HomeScreen() {
         <View className="relative items-center pt-2">
           <View className="absolute top-0 z-10 h-[13px] w-[50px] rounded-sm bg-[#B8D4F0] opacity-80" />
           <View className="w-full rounded-sm border border-border bg-white p-4 pt-5">
-            <Text className="mb-2 font-regular text-xs text-text-brown">출석 도장 · 연속 7일</Text>
+            <Text className="mb-2 font-regular text-xs text-text-brown">
+              출석 도장 · 연속 {isAttendanceLoading ? '-' : (attendance?.streakDays ?? 0)}일
+            </Text>
             <View className="flex-row gap-x-1.5">
-              {days.map((d, i) => (
+              {(attendance?.days ?? []).map((day, i) => (
                 <View
                   key={i}
                   className="h-8 flex-1 items-center justify-center rounded-sm"
-                  style={{ backgroundColor: i < 5 ? '#2A2018' : '#EDE8DE' }}
+                  style={{ backgroundColor: day.checked ? '#2A2018' : '#EDE8DE' }}
                 >
                   <Text
-                    style={{ fontSize: 10, color: i < 5 ? '#fff' : '#A09080', fontWeight: '500' }}
+                    style={{
+                      fontSize: 10,
+                      color: day.checked ? '#fff' : '#A09080',
+                      fontWeight: '500',
+                    }}
                   >
-                    {d}
+                    {DAY_LABELS[day.dayOfWeek] ?? day.dayOfWeek}
                   </Text>
                 </View>
               ))}
@@ -235,10 +304,15 @@ export default function HomeScreen() {
             <View className="absolute right-3 top-0 z-10 h-[11px] w-6 rounded-sm bg-[#FFE566] opacity-80" />
             <View className="w-full rounded-sm bg-[#FEF3C7] p-3">
               <Text className="font-regular text-xs text-text-brown">오늘 학습</Text>
-              <Text className="font-semiBold text-2xl text-btn-dark">20분</Text>
-              <Text className="font-regular text-xs text-[#D97706]">목표 60분</Text>
+              <Text className="font-semiBold text-2xl text-btn-dark">{todayStudyMinutes}분</Text>
+              <Text className="font-regular text-xs text-[#D97706]">
+                목표 {DAILY_STUDY_GOAL_MINUTES}분
+              </Text>
               <View className="mt-2 h-0.5 rounded-full bg-black/10">
-                <View className="h-0.5 w-1/3 rounded-full bg-[#D97706]" />
+                <View
+                  className="h-0.5 rounded-full bg-[#D97706]"
+                  style={{ width: studyProgressWidth }}
+                />
               </View>
             </View>
           </View>
@@ -246,10 +320,21 @@ export default function HomeScreen() {
             <View className="absolute left-3 top-0 z-10 h-[11px] w-6 rounded-sm bg-[#B8E8C0] opacity-80" />
             <View className="w-full rounded-sm bg-[#D1FAE5] p-3">
               <Text className="font-regular text-xs text-text-brown">정답률</Text>
-              <Text className="font-semiBold text-2xl text-btn-dark">58%</Text>
-              <Text className="font-regular text-xs text-[#059669]">상위 23%</Text>
+              <Text className="font-semiBold text-2xl text-btn-dark">
+                {problemAccuracy ? `${problemAccuracy.accuracyRate}%` : '-'}
+              </Text>
+              <Text className="font-regular text-xs text-[#059669]">
+                {problemAccuracy
+                  ? `${problemAccuracy.correctSubmissionCount}/${problemAccuracy.totalSubmissionCount}문제`
+                  : ''}
+              </Text>
               <View className="mt-2 h-0.5 rounded-full bg-black/10">
-                <View className="h-0.5 w-[58%] rounded-full bg-[#059669]" />
+                <View
+                  className="h-0.5 rounded-full bg-[#059669]"
+                  style={{
+                    width: `${problemAccuracy?.accuracyRate ?? 0}%` as `${number}%`,
+                  }}
+                />
               </View>
             </View>
           </View>
