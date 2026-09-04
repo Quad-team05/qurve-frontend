@@ -42,8 +42,16 @@ function buildApiUrl(path: string) {
 
   const baseUrl = API_BASE_URL.replace(/\/$/, '');
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const baseHasApiPrefix = baseUrl.endsWith('/api');
+  const pathHasApiPrefix = normalizedPath.startsWith('/api/');
+  const apiPath =
+    baseHasApiPrefix && pathHasApiPrefix
+      ? normalizedPath.replace(/^\/api/, '')
+      : baseHasApiPrefix || pathHasApiPrefix
+        ? normalizedPath
+        : `/api${normalizedPath}`;
 
-  return `${baseUrl}${normalizedPath}`;
+  return `${baseUrl}${apiPath}`;
 }
 
 function normalizeHeaders(headers?: HeadersInit): Record<string, string> {

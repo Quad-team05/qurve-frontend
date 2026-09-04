@@ -1,10 +1,17 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import {
+  CHALLENGE_GOAL_TYPE_TARGET_UNITS,
+  getChallengesForMain,
+  getMyChallenges,
+  normalizeChallengeManagement,
+  type ChallengeMain,
+} from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
+import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
 import { clearAuthSession } from '@/lib/auth/session';
-import { type Href, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,6 +27,40 @@ function showToast(message: string) {
   }
 
   Alert.alert(message);
+}
+
+function getProgressBarWidth(progressRate: number) {
+  return `${Math.max(0, Math.min(100, progressRate))}%` as `${number}%`;
+}
+
+function isChallengeAchieved(challenge: ChallengeMain) {
+  return challenge.progressRate >= 100 || challenge.currentValue >= challenge.targetValue;
+}
+
+function toMainChallenge(challenge: {
+  challengeId: number;
+  title: string;
+  goalType: ChallengeMain['goalType'];
+  targetValue: number;
+  currentValue: number;
+  progressRate?: number;
+}): ChallengeMain {
+  const progressRate =
+    typeof challenge.progressRate === 'number'
+      ? challenge.progressRate
+      : challenge.targetValue > 0
+        ? Math.round((challenge.currentValue / challenge.targetValue) * 100)
+        : 0;
+
+  return {
+    challengeId: challenge.challengeId,
+    title: challenge.title,
+    goalType: challenge.goalType,
+    targetValue: challenge.targetValue,
+    currentValue: challenge.currentValue,
+    completedDays: challenge.currentValue,
+    progressRate: Math.max(0, Math.min(100, progressRate)),
+  };
 }
 
 function Radio({ selected }: { selected: boolean }) {
@@ -121,6 +162,10 @@ export default function StudyPage() {
   const lifeLevel: LifeLevel = 'Level 2';
   const [modalVisible, setModalVisible] = useState(false);
   const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
+  const [mainChallenges, setMainChallenges] = useState<ChallengeMain[]>([]);
+  const [isChallengeLoading, setIsChallengeLoading] = useState(true);
+  const [challengeErrorMessage, setChallengeErrorMessage] = useState('');
+  const hasLoadedChallenges = useRef(false);
 
   useEffect(() => {
     const loadTodayLearning = async () => {
@@ -141,6 +186,43 @@ export default function StudyPage() {
     void loadTodayLearning();
   }, [router]);
 
+  const loadMainChallenges = useCallback(async () => {
+    try {
+      if (!hasLoadedChallenges.current) {
+        setIsChallengeLoading(true);
+      }
+      setChallengeErrorMessage('');
+      const result = await getChallengesForMain();
+
+      if (result.length > 0) {
+        setMainChallenges(result);
+      } else {
+        const management = normalizeChallengeManagement(await getMyChallenges());
+        setMainChallenges(management.completedChallenges.map(toMainChallenge));
+      }
+      hasLoadedChallenges.current = true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
+      const message =
+        error instanceof ApiError ? error.message : '챌린지 정보를 불러오지 못했습니다.';
+      setChallengeErrorMessage(message);
+      showToast(message);
+    } finally {
+      setIsChallengeLoading(false);
+    }
+  }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadMainChallenges();
+    }, [loadMainChallenges]),
+  );
+
   const handleConfirm = (newGoal: Goal, newJlptLevel: JlptLevel) => {
     setGoal(newGoal);
     if (newGoal === 'JLPT') {
@@ -155,6 +237,19 @@ export default function StudyPage() {
 
   const isLife = goal === '실생활 일본어';
   const displayLevel: Level = isLife ? lifeLevel : jlptLevel;
+  const nonWordChallenges = mainChallenges.filter(
+    (challenge) => challenge.goalType !== 'WORD_COUNT',
+  );
+  const primaryChallenge =
+    nonWordChallenges.find((challenge) => !isChallengeAchieved(challenge)) ?? nonWordChallenges[0];
+  const isPrimaryChallengeAchieved = primaryChallenge
+    ? isChallengeAchieved(primaryChallenge)
+    : false;
+  const primaryChallengeUnit = primaryChallenge
+    ? CHALLENGE_GOAL_TYPE_TARGET_UNITS[primaryChallenge.goalType]
+    : '';
+  const wordChallenge = mainChallenges.find((challenge) => challenge.goalType === 'WORD_COUNT');
+  const isWordChallengeAchieved = wordChallenge ? isChallengeAchieved(wordChallenge) : false;
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -195,17 +290,102 @@ export default function StudyPage() {
           </View>
         </View>
 
-        <View className="relative items-center pt-[8px]">
-          <View className="absolute top-0 z-10 h-[10px] w-[50px] rounded-[1px] bg-[#B8E8C0]" />
-          <Pressable
-            className="w-full rounded-sm border border-border bg-white p-4"
-            onPress={() => moveTo('/(app)/mypage/challenge')}
-          >
-            <Text className="mb-1 font-regular text-xs text-text-brown">나의 챌린지</Text>
-            <Text className="font-bold text-lg text-btn-dark">매일 단어 20개</Text>
-            <Text className="mt-2 self-end font-bold text-sm text-text-brown">학습하기 →</Text>
-          </Pressable>
-        </View>
+        {primaryChallenge || isChallengeLoading || challengeErrorMessage ? (
+          <View className="relative items-center pt-[8px]">
+            <View className="absolute top-0 z-10 h-[10px] w-[50px] rounded-[1px] bg-[#B8E8C0]" />
+            <Pressable
+              className="w-full rounded-sm border border-border bg-white p-4"
+              onPress={() => moveTo('/(app)/mypage/challenge')}
+            >
+              <Text className="mb-1 font-regular text-xs text-text-brown">나의 챌린지</Text>
+              <Text className="font-bold text-lg text-btn-dark">
+                {isChallengeLoading && mainChallenges.length === 0
+                  ? '불러오는 중...'
+                  : challengeErrorMessage
+                    ? '챌린지 정보를 확인해주세요'
+                    : primaryChallenge
+                      ? isPrimaryChallengeAchieved
+                        ? '오늘의 챌린지를 이미 달성했어요'
+                        : primaryChallenge.title
+                      : '진행 중인 챌린지가 없어요'}
+              </Text>
+              {primaryChallenge && !isChallengeLoading && !challengeErrorMessage && (
+                <>
+                  <View className="mt-2 flex-row items-center justify-between">
+                    <Text className="font-regular text-xs text-text-brown">목표 달성률</Text>
+                    <Text className="font-regular text-xs text-text-brown">
+                      {primaryChallenge.progressRate}%
+                    </Text>
+                  </View>
+                  <View className="mt-1.5 h-0.5 rounded-full bg-black/10">
+                    <View
+                      className="h-0.5 rounded-full bg-[#059669]"
+                      style={{ width: getProgressBarWidth(primaryChallenge.progressRate) }}
+                    />
+                  </View>
+                  {isPrimaryChallengeAchieved ? (
+                    <Text className="mt-1.5 font-regular text-xs text-text-brown">
+                      {primaryChallenge.title}
+                    </Text>
+                  ) : (
+                    <Text className="mt-1.5 font-regular text-xs text-text-brown">
+                      {primaryChallenge.currentValue}/{primaryChallenge.targetValue}
+                      {primaryChallengeUnit}
+                    </Text>
+                  )}
+                </>
+              )}
+              <Text className="mt-2 self-end font-bold text-sm text-text-brown">챌린지 설정 →</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {wordChallenge && !isChallengeLoading && !challengeErrorMessage ? (
+          <View className="relative items-center pt-[8px]">
+            <View className="absolute top-0 z-10 h-[10px] w-[50px] rounded-[1px] bg-[#C7E8FF]" />
+            <Pressable
+              className="w-full rounded-sm border border-border bg-white p-4"
+              onPress={() => {
+                if (isWordChallengeAchieved) {
+                  moveTo('/(app)/mypage/challenge');
+                  return;
+                }
+
+                router.push({
+                  pathname: '/(app)/learning/vocab/study',
+                  params: {
+                    challenge: 'true',
+                    unitName: '챌린지 단어',
+                  },
+                });
+              }}
+            >
+              <Text className="mb-1 font-regular text-xs text-text-brown">챌린지 단어 학습</Text>
+              <Text className="font-bold text-lg text-btn-dark">
+                {isWordChallengeAchieved
+                  ? '오늘의 단어 챌린지를 이미 달성했어요'
+                  : wordChallenge.title}
+              </Text>
+              <View className="mt-2 flex-row items-center justify-between">
+                <Text className="font-regular text-xs text-text-brown">
+                  {wordChallenge.currentValue}/{wordChallenge.targetValue}개
+                </Text>
+                <Text className="font-regular text-xs text-text-brown">
+                  {wordChallenge.progressRate}%
+                </Text>
+              </View>
+              <View className="mt-1.5 h-0.5 rounded-full bg-black/10">
+                <View
+                  className="h-0.5 rounded-full bg-[#2563EB]"
+                  style={{ width: getProgressBarWidth(wordChallenge.progressRate) }}
+                />
+              </View>
+              <Text className="mt-2 self-end font-bold text-sm text-text-brown">
+                {isWordChallengeAchieved ? '챌린지 보기 →' : '학습하기 →'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <View className="relative items-center pt-[8px]">
           <View className="absolute top-0 z-10 h-[10px] w-[50px] rounded-[1px] bg-[#F9C8D8]" />

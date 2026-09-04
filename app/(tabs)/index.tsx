@@ -1,10 +1,17 @@
 import Text from '@/components/ui/AppText';
+import {
+  CHALLENGE_GOAL_TYPE_TARGET_UNITS,
+  getChallengesForMain,
+  getMyChallenges,
+  normalizeChallengeManagement,
+  type ChallengeMain,
+} from '@/lib/api/challenge';
+import { ApiError } from '@/lib/api/client';
 import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
-import { ApiError } from '@/lib/api/client';
 import { clearAuthSession, consumeNeedsLevelTest } from '@/lib/auth/session';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,12 +24,50 @@ function showToast(message: string) {
   Alert.alert(message);
 }
 
+function getProgressBarWidth(progressRate: number) {
+  return `${Math.max(0, Math.min(100, progressRate))}%` as `${number}%`;
+}
+
+function isChallengeAchieved(challenge: ChallengeMain) {
+  return challenge.progressRate >= 100 || challenge.currentValue >= challenge.targetValue;
+}
+
+function toMainChallenge(challenge: {
+  challengeId: number;
+  title: string;
+  goalType: ChallengeMain['goalType'];
+  targetValue: number;
+  currentValue: number;
+  progressRate?: number;
+}): ChallengeMain {
+  const progressRate =
+    typeof challenge.progressRate === 'number'
+      ? challenge.progressRate
+      : challenge.targetValue > 0
+        ? Math.round((challenge.currentValue / challenge.targetValue) * 100)
+        : 0;
+
+  return {
+    challengeId: challenge.challengeId,
+    title: challenge.title,
+    goalType: challenge.goalType,
+    targetValue: challenge.targetValue,
+    currentValue: challenge.currentValue,
+    completedDays: challenge.currentValue,
+    progressRate: Math.max(0, Math.min(100, progressRate)),
+  };
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const days = ['월', '화', '수', '목', '금', '토', '일'];
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
+  const [mainChallenges, setMainChallenges] = useState<ChallengeMain[]>([]);
+  const [isChallengeLoading, setIsChallengeLoading] = useState(true);
+  const [challengeErrorMessage, setChallengeErrorMessage] = useState('');
+  const hasLoadedChallenges = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -41,6 +86,52 @@ export default function HomeScreen() {
       mounted = false;
     };
   }, [router]);
+
+  const loadMainChallenges = useCallback(async () => {
+    try {
+      if (!hasLoadedChallenges.current) {
+        setIsChallengeLoading(true);
+      }
+      setChallengeErrorMessage('');
+      const result = await getChallengesForMain();
+
+      if (result.length > 0) {
+        setMainChallenges(result);
+      } else {
+        const management = normalizeChallengeManagement(await getMyChallenges());
+        setMainChallenges(management.completedChallenges.map(toMainChallenge));
+      }
+      hasLoadedChallenges.current = true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
+      const message =
+        error instanceof ApiError ? error.message : '챌린지 정보를 불러오지 못했습니다.';
+      setChallengeErrorMessage(message);
+      showToast(message);
+    } finally {
+      setIsChallengeLoading(false);
+    }
+  }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadMainChallenges();
+    }, [loadMainChallenges]),
+  );
+
+  const primaryChallenge =
+    mainChallenges.find((challenge) => !isChallengeAchieved(challenge)) ?? mainChallenges[0];
+  const isPrimaryChallengeAchieved = primaryChallenge
+    ? isChallengeAchieved(primaryChallenge)
+    : false;
+  const primaryChallengeUnit = primaryChallenge
+    ? CHALLENGE_GOAL_TYPE_TARGET_UNITS[primaryChallenge.goalType]
+    : '';
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -172,14 +263,47 @@ export default function HomeScreen() {
             onPress={() => router.push('/(app)/mypage/challenge')}
           >
             <Text className="mb-1 font-regular text-xs text-text-brown">나의 챌린지</Text>
-            <Text className="font-semiBold text-lg text-btn-dark">매일 단어 20개</Text>
-            <View className="mt-2 flex-row items-center justify-between">
-              <Text className="font-regular text-xs text-text-brown">목표 달성률</Text>
-              <Text className="font-regular text-xs text-text-brown">50%</Text>
-            </View>
-            <View className="mt-1.5 h-0.5 rounded-full bg-black/10">
-              <View className="h-0.5 w-1/2 rounded-full bg-[#6B7280]" />
-            </View>
+            {isChallengeLoading && mainChallenges.length === 0 ? (
+              <Text className="font-semiBold text-lg text-btn-dark">불러오는 중...</Text>
+            ) : challengeErrorMessage ? (
+              <Text className="font-semiBold text-lg text-btn-dark">
+                챌린지 정보를 확인해주세요
+              </Text>
+            ) : primaryChallenge ? (
+              <>
+                <Text className="font-semiBold text-lg text-btn-dark">
+                  {isPrimaryChallengeAchieved
+                    ? '오늘의 챌린지를 이미 달성했어요'
+                    : primaryChallenge.title}
+                </Text>
+                <View className="mt-2 flex-row items-center justify-between">
+                  <Text className="font-regular text-xs text-text-brown">목표 달성률</Text>
+                  <Text className="font-regular text-xs text-text-brown">
+                    {primaryChallenge.progressRate}%
+                  </Text>
+                </View>
+                <View className="mt-1.5 h-0.5 rounded-full bg-black/10">
+                  <View
+                    className="h-0.5 rounded-full bg-[#6B7280]"
+                    style={{ width: getProgressBarWidth(primaryChallenge.progressRate) }}
+                  />
+                </View>
+                <Text className="mt-1.5 font-regular text-xs text-text-brown">
+                  {isPrimaryChallengeAchieved
+                    ? primaryChallenge.title
+                    : `${primaryChallenge.currentValue}/${primaryChallenge.targetValue}${primaryChallengeUnit} · ${primaryChallenge.completedDays}일 달성`}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text className="font-semiBold text-lg text-btn-dark">
+                  진행 중인 챌린지가 없어요
+                </Text>
+                <Text className="mt-1 font-regular text-xs text-text-brown">
+                  새 챌린지를 추가해 보세요.
+                </Text>
+              </>
+            )}
           </Pressable>
         </View>
 
