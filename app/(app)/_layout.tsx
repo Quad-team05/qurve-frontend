@@ -38,6 +38,7 @@ export default function AppRoutesLayout() {
         name="mypage/challenge/create-confirm"
         options={{ title: '챌린지 추가 - 확인 및 등록' }}
       />
+      <Stack.Screen name="mypage/challenge/edit" options={{ title: '챌린지 수정' }} />
       <Stack.Screen name="mypage/activity" options={{ title: '내 활동' }} />
 
       <Stack.Screen name="mypage/level-guide" options={{ title: '레벨 가이드' }} />

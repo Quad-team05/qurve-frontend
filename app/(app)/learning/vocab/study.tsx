@@ -1,11 +1,19 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { ApiError } from '@/lib/api/client';
-import { getVocabWords } from '@/lib/api/vocabulary';
+import { getMyChallenges, normalizeChallengeManagement } from '@/lib/api/challenge';
+import {
+  completeChallengeWords,
+  completeVocabUnit,
+  getChallengeWords,
+  getVocabWords,
+  startVocabUnit,
+} from '@/lib/api/vocabulary';
 import type { JlptLevel, VocabWord, VocabWordsData } from '@/lib/api/vocabulary';
+import { clearAuthSession } from '@/lib/auth/session';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const levels: JlptLevel[] = ['N1', 'N2', 'N3', 'N4', 'N5'];
@@ -14,6 +22,15 @@ type StudyWord = VocabWord & {
   bookmarked: boolean;
   revealed: boolean;
 };
+
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
 
 function normalizeParam(value?: string | string[]) {
   if (Array.isArray(value)) return value[0];
@@ -36,11 +53,19 @@ function parseUnitNumber(value?: string | string[]) {
   return 1;
 }
 
-function getErrorMessage(error: unknown) {
+function isTruthyParam(value?: string | string[]) {
+  return normalizeParam(value) === 'true';
+}
+
+function getErrorMessage(error: unknown, isChallengeMode = false) {
   if (!(error instanceof ApiError)) return '단어 목록을 불러오지 못했습니다.';
 
   if (error.status === 401 || error.status === 403) {
     return '로그인이 필요합니다. 다시 로그인해주세요.';
+  }
+
+  if (isChallengeMode && error.code === 'CHALLENGE_NOT_FOUND') {
+    return '진행 중인 단어 암기 챌린지가 없습니다.';
   }
 
   if (error.code === 'INVALID_LEVEL') {
@@ -64,20 +89,34 @@ function getDisplayMeaning(word: StudyWord) {
   );
 }
 
+function getRemainingDays(endDate: string) {
+  const [year, month, day] = endDate.split('-').map(Number);
+  const end = new Date(year, month - 1, day);
+  const today = new Date();
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const endOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+  return Math.max(0, Math.ceil((endOnly.getTime() - todayOnly.getTime()) / 86400000));
+}
+
 export default function VocabStudyPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     level?: string | string[];
     unitNumber?: string | string[];
     unitName?: string | string[];
+    challenge?: string | string[];
   }>();
+  const isChallengeMode = useMemo(() => isTruthyParam(params.challenge), [params.challenge]);
   const level = useMemo(() => parseLevel(params.level), [params.level]);
   const unitNumber = useMemo(() => parseUnitNumber(params.unitNumber), [params.unitNumber]);
-  const unitName = normalizeParam(params.unitName) || `UNIT ${unitNumber}`;
+  const unitName =
+    normalizeParam(params.unitName) || (isChallengeMode ? '챌린지 단어' : `UNIT ${unitNumber}`);
   const [wordsData, setWordsData] = useState<VocabWordsData | null>(null);
   const [words, setWords] = useState<StudyWord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isCompleting, setIsCompleting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -86,27 +125,43 @@ export default function VocabStudyPage() {
       try {
         setIsLoading(true);
         setErrorMessage('');
-        const nextWordsData = await getVocabWords(level, unitNumber);
+        const nextWordsData = isChallengeMode
+          ? await (async () => {
+              const challengeWords = await getChallengeWords();
+
+              return {
+                level,
+                unitNumber: 0,
+                totalCount: challengeWords.length,
+                words: challengeWords,
+              };
+            })()
+          : await (async () => {
+              await startVocabUnit(level, unitNumber);
+              return getVocabWords(level, unitNumber);
+            })();
 
         if (!mounted) return;
 
+        const sortedWords = nextWordsData.words
+          .slice()
+          .sort((a, b) => a.orderNumber - b.orderNumber);
+
         setWordsData(nextWordsData);
         setWords(
-          nextWordsData.words
-            .slice()
-            .sort((a, b) => a.orderNumber - b.orderNumber)
-            .map((word) => ({
-              ...word,
-              bookmarked: false,
-              revealed: false,
-            })),
+          sortedWords.map((word, index) => ({
+            ...word,
+            orderNumber: word.orderNumber || index + 1,
+            bookmarked: false,
+            revealed: false,
+          })),
         );
       } catch (error) {
         if (!mounted) return;
 
         setWordsData(null);
         setWords([]);
-        setErrorMessage(getErrorMessage(error));
+        setErrorMessage(getErrorMessage(error, isChallengeMode));
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -117,7 +172,7 @@ export default function VocabStudyPage() {
     return () => {
       mounted = false;
     };
-  }, [level, unitNumber]);
+  }, [isChallengeMode, level, unitNumber]);
 
   const toggleReveal = (wordId: number) => {
     setWords((prev) =>
@@ -133,9 +188,56 @@ export default function VocabStudyPage() {
     );
   };
 
+  const handleComplete = async () => {
+    if (isCompleting) return;
+
+    try {
+      setIsCompleting(true);
+      if (isChallengeMode) {
+        const result = await completeChallengeWords(words.map((word) => word.wordId));
+        const management = normalizeChallengeManagement(await getMyChallenges());
+        const wordChallenge = [
+          ...management.activeChallenges,
+          ...management.completedChallenges,
+          ...(management.failedChallenges ?? []),
+        ].find((challenge) => challenge.goalType === 'WORD_COUNT');
+        const remainingDays = wordChallenge ? getRemainingDays(wordChallenge.endDate) : null;
+        const remainingText =
+          remainingDays === null
+            ? ''
+            : remainingDays === 0
+              ? '오늘이 마지막 날이에요.'
+              : `${remainingDays}일 남았어요.`;
+        const learnedText =
+          result.newlyLearnedWordCount > 0
+            ? `${result.newlyLearnedWordCount}개 단어 학습이 반영되었습니다.`
+            : '오늘의 챌린지를 이미 달성했어요.';
+
+        showToast([learnedText, remainingText].filter(Boolean).join(' '));
+        router.back();
+        return;
+      }
+
+      await completeVocabUnit(level, unitNumber);
+      showToast('단어 학습을 완료했습니다.');
+      router.back();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        showToast('로그인이 필요합니다.');
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
+      showToast(error instanceof ApiError ? error.message : '단어 학습 완료 처리에 실패했습니다.');
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-bg">
-      <TopBar title="단어 학습하기" />
+      <TopBar title={isChallengeMode ? '챌린지 단어 학습' : '단어 학습하기'} />
 
       <ScrollView
         className="flex-1"
@@ -143,7 +245,7 @@ export default function VocabStudyPage() {
         showsVerticalScrollIndicator={false}
       >
         <Text className="mb-1 font-regular text-xs text-text-brown">
-          {level} / {unitName}
+          {isChallengeMode ? unitName : `${level} / ${unitName}`}
         </Text>
         <Text className="mb-3 font-regular text-xs text-text-brown">
           총 {wordsData?.totalCount ?? words.length}개 단어
@@ -204,8 +306,17 @@ export default function VocabStudyPage() {
 
         <View className="mt-2 flex-row items-center justify-between border-t border-dashed border-border pt-4">
           <Text className="text-2xl text-text-brown">↓</Text>
-          <Pressable className="rounded-sm bg-btn-dark px-7 py-3" onPress={() => router.back()}>
-            <Text className="font-semiBold text-sm text-white">학습완료</Text>
+          <Pressable
+            className="rounded-sm bg-btn-dark px-7 py-3"
+            disabled={isCompleting || isLoading || !!errorMessage || words.length === 0}
+            onPress={handleComplete}
+            style={{
+              opacity: isCompleting || isLoading || errorMessage || words.length === 0 ? 0.6 : 1,
+            }}
+          >
+            <Text className="font-semiBold text-sm text-white">
+              {isCompleting ? '완료 처리 중...' : '학습완료'}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>

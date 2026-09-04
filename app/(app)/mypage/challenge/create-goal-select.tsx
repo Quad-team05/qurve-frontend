@@ -1,13 +1,29 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import {
+  CHALLENGE_GOAL_TYPE_ICONS,
+  CHALLENGE_GOAL_TYPE_LABELS,
+  CHALLENGE_GOAL_TYPE_SETTING_DESCRIPTIONS,
+  getChallengeGoalTypes,
+  type ChallengeGoalType,
+  type ChallengeGoalTypeCode,
+} from '@/lib/api/challenge';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const GREEN = '#059669';
 const GREEN_LIGHT = '#ECFDF5';
-const GREEN_MID = '#A7F3D0';
+
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
 
 const StepBar = ({ step }: { step: number }) => (
   <View className="flex-row px-4 pb-2 pt-3">
@@ -30,18 +46,44 @@ const StepBar = ({ step }: { step: number }) => (
   </View>
 );
 
-const goals = [
-  { icon: '🔥', title: '하루 학습 시간', sub: '매일 일정 시간 학습' },
-  { icon: '📘', title: '단어 암기', sub: '매일 단어 암기 목표' },
-  { icon: '📝', title: '문장 학습', sub: '매일 문장 학습 목표' },
-  { icon: '📖', title: '읽기 학습', sub: '매일 읽기 학습 목표' },
-  { icon: '🎧', title: '듣기 학습', sub: '매일 듣기 학습 목표' },
-  { icon: '🔄', title: '복습하기', sub: '복습 목표 설정' },
-];
-
 export default function CreateGoalSelectPage() {
   const router = useRouter();
-  const [selected, setSelected] = useState(0);
+  const [goalTypes, setGoalTypes] = useState<ChallengeGoalType[]>([]);
+  const [selectedCode, setSelectedCode] = useState<ChallengeGoalTypeCode | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadGoalTypes = async () => {
+      try {
+        setIsLoading(true);
+        setErrorMessage('');
+        const result = await getChallengeGoalTypes();
+
+        if (!mounted) return;
+
+        setGoalTypes(result);
+        setSelectedCode(result[0]?.code ?? null);
+      } catch {
+        if (!mounted) return;
+
+        setErrorMessage('챌린지 목표 유형을 불러오지 못했습니다.');
+        showToast('챌린지 목표 유형을 불러오지 못했습니다.');
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    void loadGoalTypes();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const selectedGoal = goalTypes.find((goal) => goal.code === selectedCode);
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -57,57 +99,78 @@ export default function CreateGoalSelectPage() {
           원하는 챌린지 유형을 선택해 보세요.
         </Text>
 
-        {/* 2x3 그리드 */}
-        <View className="mb-3 flex-row flex-wrap gap-3">
-          {goals.map((g, i) => (
+        {isLoading && (
+          <View className="mb-7 rounded-sm border border-border bg-white p-5">
+            <Text className="text-center font-regular text-sm text-text-brown">
+              목표 유형을 불러오는 중입니다.
+            </Text>
+          </View>
+        )}
+
+        {!isLoading && errorMessage ? (
+          <View className="mb-7 rounded-sm border border-border bg-white p-5">
+            <Text className="text-center font-regular text-sm text-text-brown">{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {!isLoading && !errorMessage && goalTypes.length === 0 && (
+          <View className="mb-7 rounded-sm border border-border bg-white p-5">
+            <Text className="text-center font-regular text-sm text-text-brown">
+              선택할 수 있는 목표 유형이 없습니다.
+            </Text>
+          </View>
+        )}
+
+        <View className="mb-7 flex-row flex-wrap gap-3">
+          {goalTypes.map((g) => (
             <Pressable
-              key={i}
+              key={g.code}
               style={{
                 width: '47%',
-                backgroundColor: selected === i ? GREEN_LIGHT : '#fff',
+                backgroundColor: selectedCode === g.code ? GREEN_LIGHT : '#fff',
                 borderWidth: 1.5,
-                borderColor: selected === i ? GREEN : '#E0D8C8',
+                borderColor: selectedCode === g.code ? GREEN : '#E0D8C8',
                 borderRadius: 8,
                 padding: 16,
                 alignItems: 'center',
                 gap: 8,
               }}
-              onPress={() => setSelected(i)}
+              onPress={() => setSelectedCode(g.code)}
             >
-              <Text style={{ fontSize: 26 }}>{g.icon}</Text>
-              <Text className="font-semiBold text-center text-sm text-btn-dark">{g.title}</Text>
+              <Text style={{ fontSize: 26 }}>{CHALLENGE_GOAL_TYPE_ICONS[g.code] ?? '✓'}</Text>
+              <Text className="font-semiBold text-center text-sm text-btn-dark">
+                {CHALLENGE_GOAL_TYPE_LABELS[g.code] ?? g.description}
+              </Text>
               <Text className="text-center font-regular" style={{ fontSize: 10, color: '#A09080' }}>
-                {g.sub}
+                {CHALLENGE_GOAL_TYPE_SETTING_DESCRIPTIONS[g.code] ?? g.description}
               </Text>
             </Pressable>
           ))}
         </View>
 
-        {/* 나만의 목표 */}
-        <Pressable
-          className="mb-7 flex-row items-center gap-x-3 rounded-lg border border-border bg-white p-4"
-          onPress={() => setSelected(6)}
-          style={{
-            borderColor: selected === 6 ? GREEN : '#E0D8C8',
-            backgroundColor: selected === 6 ? GREEN_LIGHT : '#fff',
-          }}
-        >
-          <Text style={{ fontSize: 22 }}>📍</Text>
-          <View>
-            <Text className="font-semiBold text-sm text-btn-dark">나만의 목표</Text>
-            <Text className="font-regular text-xs text-text-brown">직접 목표를 설정해 보세요.</Text>
-          </View>
-        </Pressable>
-
         {/* 다음 버튼 */}
         <Pressable
           style={{
-            backgroundColor: GREEN,
+            backgroundColor: selectedCode ? GREEN : '#C8C0B0',
             borderRadius: 8,
             paddingVertical: 16,
             alignItems: 'center',
           }}
-          onPress={() => router.push('/(app)/mypage/challenge/create-goal-settings')}
+          disabled={!selectedCode}
+          onPress={() => {
+            if (!selectedCode || !selectedGoal) return;
+
+            router.push({
+              pathname: '/(app)/mypage/challenge/create-goal-settings',
+              params: {
+                goalType: selectedCode,
+                goalLabel: CHALLENGE_GOAL_TYPE_LABELS[selectedCode] ?? selectedGoal.description,
+                goalDescription:
+                  CHALLENGE_GOAL_TYPE_SETTING_DESCRIPTIONS[selectedCode] ??
+                  selectedGoal.description,
+              },
+            });
+          }}
         >
           <Text className="font-semiBold text-sm text-white">다음</Text>
         </Pressable>

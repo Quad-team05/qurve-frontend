@@ -38,6 +38,11 @@ type ApiResponse<T> = {
   code: string;
 };
 
+export type ChallengeWordCompleteResult = {
+  submittedWordCount: number;
+  newlyLearnedWordCount: number;
+};
+
 export async function getVocabUnits(level: JlptLevel) {
   const response = await apiFetch<ApiResponse<VocabUnit[]>>(
     `/vocabularies/units?level=${encodeURIComponent(level)}`,
@@ -84,6 +89,17 @@ export async function getChallengeWords() {
   const response = await apiFetch<ApiResponse<VocabWord[]>>('/vocabularies/challenge-words', {
     method: 'GET',
   });
+  return response.data;
+}
+
+export async function completeChallengeWords(wordIds: number[]) {
+  const response = await apiFetch<ApiResponse<ChallengeWordCompleteResult>>(
+    '/vocabularies/challenge-words/complete',
+    {
+      method: 'POST',
+      body: JSON.stringify({ wordIds }),
+    },
+  );
   return response.data;
 }
 

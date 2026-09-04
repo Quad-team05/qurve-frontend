@@ -1,13 +1,43 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { useRouter } from 'expo-router';
+import {
+  CHALLENGE_GOAL_TYPE_DEFAULT_TARGETS,
+  CHALLENGE_GOAL_TYPE_ICONS,
+  CHALLENGE_GOAL_TYPE_LABELS,
+  CHALLENGE_GOAL_TYPE_SETTING_DESCRIPTIONS,
+  CHALLENGE_GOAL_TYPE_TARGET_LABELS,
+  CHALLENGE_GOAL_TYPE_TARGET_OPTIONS,
+  CHALLENGE_GOAL_TYPE_TARGET_STEPS,
+  CHALLENGE_GOAL_TYPE_TARGET_UNITS,
+  type ChallengeGoalTypeCode,
+} from '@/lib/api/challenge';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Switch,
+  TextInput,
+  ToastAndroid,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const GREEN = '#059669';
 const GREEN_LIGHT = '#ECFDF5';
 const GREEN_MID = '#A7F3D0';
+
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
 
 const StepBar = ({ step }: { step: number }) => (
   <View className="flex-row px-4 pb-2 pt-3">
@@ -37,6 +67,12 @@ const formatDate = (date: Date) => {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}.${m}.${d} (${getDayName(date)})`;
+};
+const formatApiDate = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 const CalendarModal = ({
@@ -180,42 +216,108 @@ const CalendarModal = ({
 };
 
 const days = ['월', '화', '수', '목', '금', '토', '일'];
-const timeOptions = ['15분', '30분', '60분', '90분', '직접 입력'];
-const timeValues = [15, 30, 60, 90];
+
+function getDefaultEndDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 27);
+  return date;
+}
 
 export default function CreateGoalSettingsPage() {
   const router = useRouter();
-  const [minutes, setMinutes] = useState(30);
-  const [selectedTimeIdx, setSelectedTimeIdx] = useState(1);
-  const [customTimeModal, setCustomTimeModal] = useState(false);
-  const [customTimeInput, setCustomTimeInput] = useState('');
+  const params = useLocalSearchParams<{
+    goalType?: ChallengeGoalTypeCode;
+    goalLabel?: string;
+    goalDescription?: string;
+  }>();
+  const goalType = params.goalType ?? 'STUDY_TIME';
+  const goalLabel = params.goalLabel ?? CHALLENGE_GOAL_TYPE_LABELS[goalType];
+  const goalDescription = params.goalDescription ?? '매일 목표 달성하기';
+  const targetLabel = CHALLENGE_GOAL_TYPE_TARGET_LABELS[goalType];
+  const targetUnit = CHALLENGE_GOAL_TYPE_TARGET_UNITS[goalType];
+  const targetOptions = CHALLENGE_GOAL_TYPE_TARGET_OPTIONS[goalType];
+  const targetStep = CHALLENGE_GOAL_TYPE_TARGET_STEPS[goalType];
+  const targetOptionLabels = [
+    ...targetOptions.map((option) => `${option}${targetUnit}`),
+    '직접 입력',
+  ];
+  const defaultTarget = CHALLENGE_GOAL_TYPE_DEFAULT_TARGETS[goalType];
+  const targetDescription = CHALLENGE_GOAL_TYPE_SETTING_DESCRIPTIONS[goalType];
+  const [title, setTitle] = useState('');
+  const [targetValue, setTargetValue] = useState(defaultTarget);
+  const [selectedTargetIdx, setSelectedTargetIdx] = useState(() => {
+    const defaultIndex = targetOptions.indexOf(defaultTarget);
+    return defaultIndex === -1 ? 4 : defaultIndex;
+  });
+  const [customTargetModal, setCustomTargetModal] = useState(false);
+  const [customTargetInput, setCustomTargetInput] = useState('');
   const [selectedDays, setSelectedDays] = useState([0, 1, 2, 3, 4, 5, 6]);
   const [alarmOn, setAlarmOn] = useState(true);
   const [alarmHour, setAlarmHour] = useState(20);
   const [alarmMinute, setAlarmMinute] = useState(0);
   const [alarmModal, setAlarmModal] = useState(false);
   const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(new Date(2026, 11, 3));
+  const [endDate, setEndDate] = useState(getDefaultEndDate);
   const [dateModal, setDateModal] = useState<'start' | 'end' | null>(null);
 
-  const handleTimeOption = (i: number) => {
-    setSelectedTimeIdx(i);
-    if (i < 4) setMinutes(timeValues[i]);
-    else setCustomTimeModal(true);
+  const handleNext = () => {
+    const trimmedTitle = title.trim();
+
+    if (!trimmedTitle) {
+      showToast('챌린지 제목을 입력해주세요.');
+      return;
+    }
+
+    if (trimmedTitle.length > 50) {
+      showToast('챌린지 제목은 50자 이하로 입력해주세요.');
+      return;
+    }
+
+    if (!Number.isInteger(targetValue) || targetValue < 1) {
+      showToast(`${targetLabel}은 1 이상의 정수로 입력해주세요.`);
+      return;
+    }
+
+    if (endDate.getTime() < startDate.getTime()) {
+      showToast('종료일은 시작일보다 빠를 수 없습니다.');
+      return;
+    }
+
+    router.push({
+      pathname: '/(app)/mypage/challenge/create-confirm',
+      params: {
+        title: trimmedTitle,
+        goalType,
+        goalLabel,
+        goalDescription,
+        startDate: formatApiDate(startDate),
+        endDate: formatApiDate(endDate),
+        targetValue: String(targetValue),
+        days: selectedDays.join(','),
+        alarmTime: alarmLabel,
+      },
+    });
+  };
+
+  const handleTargetOption = (i: number) => {
+    setSelectedTargetIdx(i);
+    if (i < targetOptions.length) setTargetValue(targetOptions[i]);
+    else setCustomTargetModal(true);
   };
 
   const handleMinus = () => {
-    const newVal = minutes === 30 ? 15 : Math.max(15, minutes - 30);
-    setMinutes(newVal);
-    const idx = timeValues.indexOf(newVal);
-    setSelectedTimeIdx(idx !== -1 ? idx : 4);
+    const minimum = 1;
+    const newVal = Math.max(minimum, targetValue - targetStep);
+    setTargetValue(newVal);
+    const idx = targetOptions.indexOf(newVal);
+    setSelectedTargetIdx(idx !== -1 ? idx : targetOptions.length);
   };
 
   const handlePlus = () => {
-    const newVal = minutes === 15 ? 30 : minutes + 30;
-    setMinutes(newVal);
-    const idx = timeValues.indexOf(newVal);
-    setSelectedTimeIdx(idx !== -1 ? idx : 4);
+    const newVal = targetValue + targetStep;
+    setTargetValue(newVal);
+    const idx = targetOptions.indexOf(newVal);
+    setSelectedTargetIdx(idx !== -1 ? idx : targetOptions.length);
   };
 
   const toggleDay = (i: number) => {
@@ -237,20 +339,42 @@ export default function CreateGoalSettingsPage() {
           className="flex-row items-center gap-x-3 rounded-lg p-4"
           style={{ backgroundColor: GREEN_LIGHT, borderWidth: 1.5, borderColor: GREEN_MID }}
         >
-          <Text style={{ fontSize: 22 }}>🔥</Text>
+          <Text style={{ fontSize: 22 }}>{CHALLENGE_GOAL_TYPE_ICONS[goalType] ?? '✓'}</Text>
           <View>
-            <Text className="font-semiBold text-sm text-btn-dark">하루 학습 시간</Text>
-            <Text className="font-regular text-xs text-text-brown">매일 일정 시간 학습하기</Text>
+            <Text className="font-semiBold text-sm text-btn-dark">{goalLabel}</Text>
+            <Text className="font-regular text-xs text-text-brown">{goalDescription}</Text>
           </View>
         </View>
 
         <View>
-          <Text className="font-semiBold mb-1 text-base text-btn-dark">목표 설정</Text>
-          <Text className="mb-3.5 font-regular text-sm text-text-brown">
-            달성하고 싶은 목표를 설정해 보세요.
+          <Text className="font-semiBold mb-2 text-sm text-btn-dark">챌린지 제목</Text>
+          <TextInput
+            style={{
+              height: 48,
+              borderWidth: 1,
+              borderColor: '#E0D8C8',
+              borderRadius: 4,
+              backgroundColor: '#fff',
+              paddingHorizontal: 14,
+              fontSize: 14,
+              color: '#2A2018',
+            }}
+            placeholder="예: 하루 30분 학습"
+            placeholderTextColor="#C0B8B0"
+            maxLength={50}
+            value={title}
+            onChangeText={setTitle}
+          />
+          <Text className="mt-1 text-right font-regular text-xs text-text-brown">
+            {title.length}/50
           </Text>
+        </View>
+
+        <View>
+          <Text className="font-semiBold mb-1 text-base text-btn-dark">목표 설정</Text>
+          <Text className="mb-3.5 font-regular text-sm text-text-brown">{targetDescription}</Text>
           <View className="mb-2.5 flex-row items-center justify-between rounded-sm border border-border bg-white px-4 py-3">
-            <Text className="font-regular text-sm text-btn-dark">하루 목표 시간</Text>
+            <Text className="font-regular text-sm text-btn-dark">{targetLabel}</Text>
             <View className="flex-row items-center gap-x-3">
               <Pressable
                 style={{
@@ -266,7 +390,10 @@ export default function CreateGoalSettingsPage() {
               >
                 <Text className="font-regular text-sm text-text-brown">−</Text>
               </Pressable>
-              <Text className="font-semiBold text-sm text-btn-dark">{minutes}분</Text>
+              <Text className="font-semiBold text-sm text-btn-dark">
+                {targetValue}
+                {targetUnit}
+              </Text>
               <Pressable
                 style={{
                   height: 28,
@@ -284,7 +411,7 @@ export default function CreateGoalSettingsPage() {
             </View>
           </View>
           <View className="flex-row gap-x-1.5">
-            {timeOptions.map((t, i) => (
+            {targetOptionLabels.map((t, i) => (
               <Pressable
                 key={i}
                 style={{
@@ -292,16 +419,16 @@ export default function CreateGoalSettingsPage() {
                   alignItems: 'center',
                   paddingVertical: 7,
                   borderRadius: 4,
-                  backgroundColor: selectedTimeIdx === i ? GREEN : '#F5F3EE',
+                  backgroundColor: selectedTargetIdx === i ? GREEN : '#F5F3EE',
                   borderWidth: 0.5,
-                  borderColor: selectedTimeIdx === i ? GREEN : '#E0D8C8',
+                  borderColor: selectedTargetIdx === i ? GREEN : '#E0D8C8',
                 }}
-                onPress={() => handleTimeOption(i)}
+                onPress={() => handleTargetOption(i)}
               >
                 <Text
                   style={{
-                    fontSize: i === 4 ? 9 : 11,
-                    color: selectedTimeIdx === i ? '#fff' : '#A09080',
+                    fontSize: i === targetOptions.length ? 9 : 11,
+                    color: selectedTargetIdx === i ? '#fff' : '#A09080',
                   }}
                 >
                   {t}
@@ -411,18 +538,7 @@ export default function CreateGoalSettingsPage() {
             paddingVertical: 16,
             alignItems: 'center',
           }}
-          onPress={() =>
-            router.push({
-              pathname: '/(app)/mypage/challenge/create-confirm',
-              params: {
-                startDate: formatDate(startDate),
-                endDate: formatDate(endDate),
-                minutes: String(minutes),
-                days: selectedDays.join(','),
-                alarmTime: alarmLabel,
-              },
-            })
-          }
+          onPress={handleNext}
         >
           <Text className="font-semiBold text-sm text-white">확인하기</Text>
         </Pressable>
@@ -438,16 +554,16 @@ export default function CreateGoalSettingsPage() {
         }}
       />
 
-      <Modal visible={customTimeModal} transparent animationType="fade">
+      <Modal visible={customTargetModal} transparent animationType="fade">
         <Pressable
           className="flex-1 items-center justify-center bg-black/40"
-          onPress={() => setCustomTimeModal(false)}
+          onPress={() => setCustomTargetModal(false)}
         >
           <Pressable
             className="w-[280px] rounded-lg border border-border bg-white p-6"
             onPress={() => {}}
           >
-            <Text className="font-semiBold mb-3 text-base text-btn-dark">목표 시간 입력</Text>
+            <Text className="font-semiBold mb-3 text-base text-btn-dark">{targetLabel} 입력</Text>
             <TextInput
               style={{
                 height: 44,
@@ -459,16 +575,16 @@ export default function CreateGoalSettingsPage() {
                 fontSize: 14,
                 color: '#2A2018',
               }}
-              placeholder="분 단위로 입력 (예: 45)"
+              placeholder={`${targetLabel} 입력 (예: ${defaultTarget})`}
               placeholderTextColor="#C0B8B0"
               keyboardType="numeric"
-              value={customTimeInput}
-              onChangeText={setCustomTimeInput}
+              value={customTargetInput}
+              onChangeText={(value) => setCustomTargetInput(value.replace(/[^0-9]/g, ''))}
             />
             <View className="mt-4 flex-row gap-x-2.5">
               <Pressable
                 className="flex-1 items-center rounded-sm border border-border py-3"
-                onPress={() => setCustomTimeModal(false)}
+                onPress={() => setCustomTargetModal(false)}
               >
                 <Text className="font-regular text-sm text-btn-dark">취소</Text>
               </Pressable>
@@ -476,13 +592,13 @@ export default function CreateGoalSettingsPage() {
                 className="flex-1 items-center rounded-sm py-3"
                 style={{ backgroundColor: GREEN }}
                 onPress={() => {
-                  const m = parseInt(customTimeInput);
-                  if (m > 0) {
-                    setMinutes(m);
-                    const idx = timeValues.indexOf(m);
-                    setSelectedTimeIdx(idx !== -1 ? idx : 4);
+                  const value = parseInt(customTargetInput, 10);
+                  if (value > 0) {
+                    setTargetValue(value);
+                    const idx = targetOptions.indexOf(value);
+                    setSelectedTargetIdx(idx !== -1 ? idx : targetOptions.length);
                   }
-                  setCustomTimeModal(false);
+                  setCustomTargetModal(false);
                 }}
               >
                 <Text className="font-semiBold text-sm text-white">확인</Text>
