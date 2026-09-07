@@ -27,13 +27,15 @@ export class ApiError extends Error {
   code?: string;
   status: number;
   payload?: ErrorPayload;
+  url?: string;
 
-  constructor(message: string, status: number, payload?: ErrorPayload) {
+  constructor(message: string, status: number, payload?: ErrorPayload, url?: string) {
     super(message);
     this.name = 'ApiError';
     this.code = payload?.code;
     this.status = status;
     this.payload = payload;
+    this.url = url;
   }
 }
 
@@ -91,11 +93,9 @@ async function parseResponse(response: Response) {
 function hasErrorCode(payload: unknown): payload is ErrorPayload {
   if (!payload || typeof payload !== 'object') return false;
 
-  const { code, success } = payload as ErrorPayload & { success?: boolean };
+  const { success } = payload as ErrorPayload & { success?: boolean };
 
-  if (success === false) return true;
-
-  return typeof code === 'string' && code !== 'SUCCESS';
+  return success === false;
 }
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
@@ -111,7 +111,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     const accessToken = await getAccessToken();
 
     if (accessToken) {
-      normalizedHeaders.Authorization = `Bearer ${accessToken}`;
+      normalizedHeaders.Authorization = accessToken.startsWith('Bearer ')
+        ? accessToken
+        : `Bearer ${accessToken}`;
     }
   }
 
@@ -123,22 +125,41 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       headers: normalizedHeaders,
     });
   } catch {
-    throw new ApiError('서버에 연결할 수 없습니다.', 0, {
-      code: 'NETWORK_ERROR',
-      message: '서버에 연결할 수 없습니다.',
+    throw new ApiError(
+      '서버에 연결할 수 없습니다.',
+      0,
+      {
+        code: 'NETWORK_ERROR',
+        message: '서버에 연결할 수 없습니다.',
+        url,
+      },
       url,
-    });
+    );
   }
 
   const payload = await parseResponse(response);
 
   if (!response.ok || hasErrorCode(payload)) {
     const errorPayload = payload && typeof payload === 'object' ? (payload as ErrorPayload) : {};
-    throw new ApiError(
+    const error = new ApiError(
       errorPayload.message || 'API 요청에 실패했습니다.',
       response.status,
       errorPayload,
+      url,
     );
+
+    if (__DEV__) {
+      console.warn('[apiFetch] request failed', {
+        url,
+        status: response.status,
+        code: error.code,
+        message: error.message,
+        payload: error.payload,
+        hasAuthorization: Boolean(normalizedHeaders.Authorization),
+      });
+    }
+
+    throw error;
   }
 
   return payload as T;

@@ -3,7 +3,7 @@ import KakaoIcon from '@/assets/icons/kakao.svg';
 import NaverIcon from '@/assets/icons/naver.svg';
 import Text from '@/components/ui/AppText';
 import TextInput from '@/components/ui/AppTextInput';
-import { ApiError } from '@/lib/api/client';
+import { ApiError, API_BASE_URL } from '@/lib/api/client';
 import { login } from '@/lib/api/auth';
 import { loginWithGoogle, loginWithKakao, loginWithNaver } from '@/lib/auth/social-login';
 import { useRouter } from 'expo-router';
@@ -31,7 +31,7 @@ export default function LoginPage() {
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
   const hasEmptyField = !loginId.trim() || !password.trim();
-  const isLoginDisabled = isSubmitting;
+  const isLoginDisabled = isSubmitting || hasEmptyField;
 
   const handleLogin = async () => {
     if (isLoginDisabled) {
@@ -39,23 +39,38 @@ export default function LoginPage() {
       return;
     }
 
+    const trimmedLoginId = loginId.trim();
+    const trimmedPassword = password.trim();
+
     try {
       setIsSubmitting(true);
+
+      if (__DEV__) {
+        console.warn('[login] submitting', {
+          apiBaseUrl: API_BASE_URL,
+          loginId: trimmedLoginId,
+          loginIdLength: trimmedLoginId.length,
+          passwordLength: trimmedPassword.length,
+        });
+      }
+
       await login({
-        loginId: loginId.trim(),
-        password,
+        loginId: trimmedLoginId,
+        password: trimmedPassword,
       });
       router.replace('/(tabs)');
     } catch (error) {
       if (
         error instanceof ApiError &&
-        (error.code === 'USER_NOT_FOUND' || error.code === 'INVALID_PASSWORD')
+        (error.status === 401 ||
+          error.code === 'USER_NOT_FOUND' ||
+          error.code === 'INVALID_PASSWORD')
       ) {
         showToast(LOGIN_ERROR_MESSAGE);
         return;
       }
 
-      showToast('로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      showToast(error instanceof ApiError ? error.message : '로그인 중 문제가 발생했습니다.');
     } finally {
       setIsSubmitting(false);
     }

@@ -59,7 +59,6 @@ type PasswordResetEmailRequest = {
 type PasswordResetRequest = {
   loginId: string;
   email: string;
-  code: string;
   newPassword: string;
 };
 
@@ -96,7 +95,7 @@ export async function verifyEmailCode(email: string, code: string) {
   const response = await apiFetch<ApiResponse<{ email: string }>>('/auth/email/verify', {
     method: 'POST',
     auth: false,
-    body: JSON.stringify({ email, code, verificationCode: code }),
+    body: JSON.stringify({ email, code }),
   });
 
   return response.data;

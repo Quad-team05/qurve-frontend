@@ -17,7 +17,7 @@ const cardShadowStyle = {
   elevation: 1,
 } as const;
 
-const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=[\]{};':"\\|,.<>/?`~]).{8,20}$/;
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,20}$/;
 
 type FeedbackTone = 'success' | 'error';
 
@@ -180,13 +180,6 @@ export default function FindPasswordPage() {
       setResetFeedback(null);
     } catch (error) {
       if (error instanceof ApiError) {
-        if (error.status === 401 || error.status === 403) {
-          setVerifiedEmail(trimmedEmail);
-          setVerificationFeedback({ text: '인증 되었습니다.', tone: 'success' });
-          setResetFeedback(null);
-          return;
-        }
-
         setVerificationFeedback({
           text: error.message || '인증번호 확인에 실패했습니다.',
           tone: 'error',
@@ -250,7 +243,6 @@ export default function FindPasswordPage() {
       await resetPassword({
         loginId: trimmedLoginId,
         email: trimmedEmail,
-        code: trimmedCode,
         newPassword,
       });
 

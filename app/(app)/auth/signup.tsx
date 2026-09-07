@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const EMAIL_TIMER_SECONDS = 180;
-const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=[\]{};':"\\|,.<>/?`~]).{8,20}$/;
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,20}$/;
 
 const cardShadowStyle = {
   shadowColor: '#000000',
@@ -243,13 +243,6 @@ export default function SignUpPage() {
 
       if (error instanceof ApiError && error.code === 'INVALID_VERIFICATION_CODE') {
         setNotice('인증번호가 일치하지 않습니다.', 'error');
-        return;
-      }
-
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-        setVerifiedEmail(trimmedEmail);
-        setTimerLeft(0);
-        setNotice('이메일 인증이 완료되었습니다.', 'success');
         return;
       }
 
