@@ -1,20 +1,57 @@
 import Text from '@/components/ui/AppText';
+import { getPreQuestions, type PreQuestion } from '@/lib/api/level';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const questionOneOptions = ['처음 시작해요(0개월)', '3개월 미만', '3개월 ~ 1년 미만', '1년 이상'];
-const questionTwoOptions = ['둘 다 읽을수 있어요', '히라가나만 읽을 수 있어요', '아직 어려워요'];
-
 export default function LevelTestSurveyPage() {
   const router = useRouter();
-  const totalQuestions = 2;
-  const [selectedQ1, setSelectedQ1] = useState<number | null>(null);
-  const [selectedQ2, setSelectedQ2] = useState<number | null>(null);
-  const answeredCount = [selectedQ1, selectedQ2].filter((answer) => answer !== null).length;
-  const progressPercent = (answeredCount / totalQuestions) * 100;
-  const canStartTest = answeredCount === totalQuestions;
+  const [questions, setQuestions] = useState<PreQuestion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  // questionId -> optionId
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    const loadQuestions = async () => {
+      try {
+        setIsLoading(true);
+        const result = await getPreQuestions();
+        setQuestions(result.questions);
+      } catch (error) {
+        console.error('사전 질문을 불러오지 못했습니다.', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadQuestions();
+  }, []);
+
+  const totalQuestions = questions.length;
+  const answeredCount = Object.keys(answers).length;
+  const progressPercent = totalQuestions === 0 ? 0 : (answeredCount / totalQuestions) * 100;
+  const canStartTest = totalQuestions > 0 && answeredCount === totalQuestions;
+
+  const handleSelect = (questionId: number, optionId: number) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+  };
+
+  const handleStart = () => {
+    if (!canStartTest) return;
+
+    // 백엔드는 pre1Answer, pre2Answer, pre3Answer 3개 슬롯을 요구함
+    const answerValues = questions.map((q) => answers[q.questionId]);
+
+    router.push({
+      pathname: '/(app)/level/test',
+      params: {
+        pre1Answer: String(answerValues[0] ?? ''),
+        pre2Answer: String(answerValues[1] ?? ''),
+        pre3Answer: String(answerValues[2] ?? ''),
+      },
+    });
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -52,7 +89,7 @@ export default function LevelTestSurveyPage() {
                 간단한 설문을 진행할게요.
               </Text>
               <Text className="mb-[14px] mt-1 text-xs font-medium text-gray">
-                2가지 질문으로 시작해요
+                {totalQuestions}가지 질문으로 시작해요
               </Text>
             </View>
           </View>
@@ -66,97 +103,66 @@ export default function LevelTestSurveyPage() {
           </View>
         </View>
 
-        <Text className="mb-[10px] text-sm font-semibold text-black">
-          <Text className="text-sm text-gray">Q1 </Text>
-          일본어를 배워본 기간이 얼마나 되나요?
-        </Text>
+        {isLoading ? (
+          <Text className="text-sm text-text-brown">불러오는 중...</Text>
+        ) : (
+          questions.map((q, qIndex) => (
+            <View key={q.questionId}>
+              <Text className="mb-[10px] text-sm font-semibold text-black">
+                <Text className="text-sm text-gray">Q{qIndex + 1} </Text>
+                {q.question}
+              </Text>
 
-        {questionOneOptions.map((option, idx) => {
-          const selected = idx === selectedQ1;
-          return (
-            <TouchableOpacity
-              key={`q1-${option}`}
-              onPress={() => setSelectedQ1(idx)}
-              style={{
-                marginBottom: 10,
-                flexDirection: 'row',
-                alignItems: 'center',
-                borderRadius: 4,
-                borderWidth: 1,
-                paddingHorizontal: 12,
-                paddingVertical: 16,
-                borderColor: selected ? '#C8E0D6' : '#E0D8C8',
-                backgroundColor: selected ? '#F2F9EE' : '#fff',
-              }}
-            >
-              <View
-                style={{
-                  marginRight: 8,
-                  height: 18,
-                  width: 18,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 9,
-                  borderWidth: 1,
-                  borderColor: selected ? '#E0D8C8' : '#E4E4E4',
-                }}
-              >
-                {selected ? (
-                  <View
-                    style={{ height: 10, width: 10, borderRadius: 5, backgroundColor: '#059669' }}
-                  />
-                ) : null}
-              </View>
-              <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#6B7280' }}>{option}</Text>
-            </TouchableOpacity>
-          );
-        })}
-
-        <Text className="mb-[10px] text-sm font-semibold text-black">
-          <Text className="text-sm text-gray">Q2 </Text>
-          히라가나 · 카타카나를 읽을 수 있나요?
-        </Text>
-
-        {questionTwoOptions.map((option, idx) => {
-          const selected = idx === selectedQ2;
-          return (
-            <TouchableOpacity
-              key={`q2-${option}`}
-              onPress={() => setSelectedQ2(idx)}
-              style={{
-                marginBottom: 10,
-                flexDirection: 'row',
-                alignItems: 'center',
-                borderRadius: 4,
-                borderWidth: 1,
-                paddingHorizontal: 12,
-                paddingVertical: 16,
-                borderColor: selected ? '#C8E0D6' : '#E0D8C8',
-                backgroundColor: selected ? '#F2F9EE' : '#fff',
-              }}
-            >
-              <View
-                style={{
-                  marginRight: 8,
-                  height: 18,
-                  width: 18,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 9,
-                  borderWidth: 1,
-                  borderColor: selected ? '#E0D8C8' : '#E4E4E4',
-                }}
-              >
-                {selected ? (
-                  <View
-                    style={{ height: 10, width: 10, borderRadius: 5, backgroundColor: '#059669' }}
-                  />
-                ) : null}
-              </View>
-              <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#6B7280' }}>{option}</Text>
-            </TouchableOpacity>
-          );
-        })}
+              {q.options.map((option) => {
+                const selected = answers[q.questionId] === option.optionId;
+                return (
+                  <TouchableOpacity
+                    key={`q${q.questionId}-${option.optionId}`}
+                    onPress={() => handleSelect(q.questionId, option.optionId)}
+                    style={{
+                      marginBottom: 10,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      borderRadius: 4,
+                      borderWidth: 1,
+                      paddingHorizontal: 12,
+                      paddingVertical: 16,
+                      borderColor: selected ? '#C8E0D6' : '#E0D8C8',
+                      backgroundColor: selected ? '#F2F9EE' : '#fff',
+                    }}
+                  >
+                    <View
+                      style={{
+                        marginRight: 8,
+                        height: 18,
+                        width: 18,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 9,
+                        borderWidth: 1,
+                        borderColor: selected ? '#E0D8C8' : '#E4E4E4',
+                      }}
+                    >
+                      {selected ? (
+                        <View
+                          style={{
+                            height: 10,
+                            width: 10,
+                            borderRadius: 5,
+                            backgroundColor: '#059669',
+                          }}
+                        />
+                      ) : null}
+                    </View>
+                    <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#6B7280' }}>
+                      {option.text}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))
+        )}
       </ScrollView>
 
       <View style={{ paddingHorizontal: 16, paddingBottom: 60, paddingTop: 12 }}>
@@ -169,9 +175,8 @@ export default function LevelTestSurveyPage() {
             borderRadius: 12,
             backgroundColor: canStartTest ? '#2A2018' : '#B9B2A7',
           }}
-          onPress={() => {
-            router.push('/(app)/level/test');
-          }}
+          onPress={handleStart}
+          disabled={!canStartTest}
         >
           <Text style={{ fontSize: 16, color: '#fff' }}>레벨 테스트 시작하기</Text>
         </TouchableOpacity>
