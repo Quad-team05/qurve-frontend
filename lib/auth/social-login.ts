@@ -1,7 +1,7 @@
 import { API_BASE_URL } from '@/lib/api/client';
 import { saveAuthSession } from '@/lib/auth/session';
-import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -11,6 +11,7 @@ type SocialLoginResult =
   | { success: false; cancelled: false; message: string };
 
 type SocialProvider = 'kakao' | 'naver' | 'google';
+const SOCIAL_CALLBACK_URL = 'qurvefrontend://auth/social-callback';
 
 function getSocialBaseUrl() {
   return API_BASE_URL.replace(/\/api\/?$/, '');
@@ -36,10 +37,9 @@ async function loginWithProvider(
   providerLabel: string,
 ): Promise<SocialLoginResult> {
   const loginUrl = `${getSocialBaseUrl()}/oauth2/authorization/${provider}`;
-  const redirectUrl = Linking.createURL('auth/social-callback');
 
   try {
-    const result = await WebBrowser.openAuthSessionAsync(loginUrl, redirectUrl);
+    const result = await WebBrowser.openAuthSessionAsync(loginUrl, SOCIAL_CALLBACK_URL);
 
     if (result.type === 'cancel' || result.type === 'dismiss') {
       return { success: false, cancelled: true };
