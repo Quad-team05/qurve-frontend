@@ -45,6 +45,10 @@ export type ProblemList = {
   problems: Problem[];
 };
 
+export type ProblemSubmitRequest = {
+  selectedChoiceNumber: number;
+};
+
 export type ProblemSubmitResult = {
   problemId: number;
   submissionId: number;
@@ -123,12 +127,12 @@ export async function getProblems(request: ProblemListRequest) {
   return response.data;
 }
 
-export async function submitProblem(problemId: number, selectedChoiceNumber: number) {
+export async function submitProblem(problemId: number, request: ProblemSubmitRequest) {
   const response = await apiFetch<ApiResponse<ProblemSubmitResult>>(
     `/problems/${problemId}/submit`,
     {
       method: 'POST',
-      body: JSON.stringify({ selectedChoiceNumber }),
+      body: JSON.stringify(request),
     },
   );
 

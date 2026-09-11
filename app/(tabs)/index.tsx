@@ -8,7 +8,7 @@ import {
   type ChallengeMain,
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
-import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import { getStudyTimeStatistics, getTodayLearning, type TodayLearning } from '@/lib/api/learning';
 import { getProblemAccuracy, type ProblemAccuracy } from '@/lib/api/problem';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import { clearAuthSession, consumeNeedsLevelTest } from '@/lib/auth/session';
@@ -85,6 +85,7 @@ export default function HomeScreen() {
   const [attendance, setAttendance] = useState<Attendance | null>(null);
   const [isAttendanceLoading, setIsAttendanceLoading] = useState(true);
   const [problemAccuracy, setProblemAccuracy] = useState<ProblemAccuracy | null>(null);
+  const [todayStudyMinutes, setTodayStudyMinutes] = useState<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -231,10 +232,27 @@ export default function HomeScreen() {
     void loadProblemAccuracy();
   }, [router]);
 
-  const todayStudyMinutes = 20; // TODO: learning.ts의 getStudyTimeStatistics 연동 예정
+  useEffect(() => {
+    const loadTodayStudyTime = async () => {
+      try {
+        const result = await getStudyTimeStatistics();
+        setTodayStudyMinutes(result.todayStudyTimeMinutes);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearAuthSession();
+          router.replace('/(app)/auth/login');
+          return;
+        }
+        // 학습시간 통계도 화면 핵심 흐름이 아니므로 조용히 실패 처리
+      }
+    };
+
+    void loadTodayStudyTime();
+  }, [router]);
+
   const studyProgressWidth = `${Math.min(
     100,
-    Math.round((todayStudyMinutes / DAILY_STUDY_GOAL_MINUTES) * 100),
+    Math.round(((todayStudyMinutes ?? 0) / DAILY_STUDY_GOAL_MINUTES) * 100),
   )}%` as `${number}%`;
 
   return (
@@ -304,7 +322,9 @@ export default function HomeScreen() {
             <View className="absolute right-3 top-0 z-10 h-[11px] w-6 rounded-sm bg-[#FFE566] opacity-80" />
             <View className="w-full rounded-sm bg-[#FEF3C7] p-3">
               <Text className="font-regular text-xs text-text-brown">오늘 학습</Text>
-              <Text className="font-semiBold text-2xl text-btn-dark">{todayStudyMinutes}분</Text>
+              <Text className="font-semiBold text-2xl text-btn-dark">
+                {todayStudyMinutes ?? 0}분
+              </Text>
               <Text className="font-regular text-xs text-[#D97706]">
                 목표 {DAILY_STUDY_GOAL_MINUTES}분
               </Text>
