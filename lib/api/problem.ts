@@ -27,6 +27,8 @@ export type Problem = {
   choices: ProblemChoice[];
 };
 
+export type ProblemItem = Problem;
+
 export type ProblemListRequest = {
   level: JlptLevel;
   category: ProblemCategory;
@@ -123,7 +125,15 @@ export async function getProblems(request: ProblemListRequest) {
   return response.data;
 }
 
-export async function submitProblem(problemId: number, selectedChoiceNumber: number) {
+export async function submitProblem(
+  problemId: number,
+  selectedChoiceNumberOrRequest: number | { selectedChoiceNumber: number },
+) {
+  const selectedChoiceNumber =
+    typeof selectedChoiceNumberOrRequest === 'number'
+      ? selectedChoiceNumberOrRequest
+      : selectedChoiceNumberOrRequest.selectedChoiceNumber;
+
   const response = await apiFetch<ApiResponse<ProblemSubmitResult>>(
     `/problems/${problemId}/submit`,
     {
@@ -191,3 +201,5 @@ export async function getBookmarkedProblems() {
 
   return response.data;
 }
+
+export const getProblemBookmarks = getBookmarkedProblems;

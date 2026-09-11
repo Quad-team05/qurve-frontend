@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
 import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import { getBookmarkedWords } from '@/lib/api/vocabulary';
 import { clearAuthSession } from '@/lib/auth/session';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -166,6 +167,8 @@ export default function StudyPage() {
   const [isChallengeLoading, setIsChallengeLoading] = useState(true);
   const [challengeErrorMessage, setChallengeErrorMessage] = useState('');
   const hasLoadedChallenges = useRef(false);
+  const [bookmarkedWordCount, setBookmarkedWordCount] = useState<number | null>(null);
+  const [isBookmarkedWordLoading, setIsBookmarkedWordLoading] = useState(true);
 
   useEffect(() => {
     const loadTodayLearning = async () => {
@@ -223,6 +226,43 @@ export default function StudyPage() {
     }, [loadMainChallenges]),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+
+      const loadBookmarkedWords = async () => {
+        try {
+          setIsBookmarkedWordLoading(true);
+          const words = await getBookmarkedWords();
+
+          if (!mounted) return;
+
+          setBookmarkedWordCount(words.length);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            await clearAuthSession();
+            router.replace('/(app)/auth/login');
+            return;
+          }
+
+          if (mounted) {
+            setBookmarkedWordCount(null);
+          }
+        } finally {
+          if (mounted) {
+            setIsBookmarkedWordLoading(false);
+          }
+        }
+      };
+
+      void loadBookmarkedWords();
+
+      return () => {
+        mounted = false;
+      };
+    }, [router]),
+  );
+
   const handleConfirm = (newGoal: Goal, newJlptLevel: JlptLevel) => {
     setGoal(newGoal);
     if (newGoal === 'JLPT') {
@@ -250,6 +290,8 @@ export default function StudyPage() {
     : '';
   const wordChallenge = mainChallenges.find((challenge) => challenge.goalType === 'WORD_COUNT');
   const isWordChallengeAchieved = wordChallenge ? isChallengeAchieved(wordChallenge) : false;
+  const bookmarkedWordProgressWidth =
+    `${Math.min(100, Math.round(((bookmarkedWordCount ?? 0) / 30) * 100))}%` as `${number}%`;
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -433,9 +475,14 @@ export default function StudyPage() {
             onPress={() => moveTo('/(app)/learning/vocab/bookmarked')}
           >
             <Text className="mb-1 font-regular text-xs text-[#3A8F6A]">나의 단어장</Text>
-            <Text className="font-bold text-3xl text-btn-dark">북마크 12개</Text>
+            <Text className="font-bold text-3xl text-btn-dark">
+              {isBookmarkedWordLoading ? '-' : `북마크 ${bookmarkedWordCount ?? 0}개`}
+            </Text>
             <View className="mt-2 h-1 rounded-full bg-[#BFDCCD]">
-              <View className="h-1 w-2/5 rounded-full bg-[#059669]" />
+              <View
+                className="h-1 rounded-full bg-[#059669]"
+                style={{ width: bookmarkedWordProgressWidth }}
+              />
             </View>
           </Pressable>
         </View>

@@ -65,7 +65,7 @@ function mapQuestionFormatToLabel(questionFormat?: string) {
   }
 }
 
-function renderPassageText(passageText: string) {
+function renderPassageText(passageText: string | null) {
   const normalizedText = passageText?.trim();
 
   if (!normalizedText) return null;

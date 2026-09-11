@@ -1,10 +1,12 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { getBadges } from '@/lib/api/badge';
+import { ApiError } from '@/lib/api/client';
 import { getTodayXp, getXpStat, getXpWeekly, type XpDaily, type XpStat } from '@/lib/api/xp';
+import { clearAuthSession } from '@/lib/auth/session';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const GREEN = '#059669';
@@ -17,13 +19,6 @@ const TEXT3 = '#A09080';
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 type XpDayDisplay = { day: string; xp: number; done: boolean; highlight: boolean };
-
-// TODO: 이번 주 목표 조회 API 나오면 교체
-const weeklyGoal = {
-  status: '진행 중',
-  currentMinutes: 200, // 3시간 20분
-  targetMinutes: 300, // 5시간
-};
 
 function formatXpDaysForDisplay(weekly: XpDaily[]): XpDayDisplay[] {
   const maxXp = Math.max(0, ...weekly.map((d) => d.xpAmount));
@@ -39,6 +34,15 @@ function formatXpDaysForDisplay(weekly: XpDaily[]): XpDayDisplay[] {
   });
 }
 
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
+
 export default function ActivityPage() {
   const router = useRouter();
 
@@ -48,37 +52,41 @@ export default function ActivityPage() {
   const [badgeAchievedCount, setBadgeAchievedCount] = useState<number | null>(null);
   const [badgeTotalCount, setBadgeTotalCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadError, setHasLoadError] = useState(false);
+
+  const loadData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setHasLoadError(false);
+      const [stat, weekly, today, badgeList] = await Promise.all([
+        getXpStat(),
+        getXpWeekly(),
+        getTodayXp(),
+        getBadges(),
+      ]);
+
+      setXpStat(stat);
+      setXpDays(formatXpDaysForDisplay(weekly));
+      setTodayXp(today.totalXp);
+      setBadgeAchievedCount(badgeList.achievedCount);
+      setBadgeTotalCount(badgeList.totalCount);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
+      setHasLoadError(true);
+      showToast('활동 데이터를 불러오지 못했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [router]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const [stat, weekly, today, badgeList] = await Promise.all([
-          getXpStat(),
-          getXpWeekly(),
-          getTodayXp(),
-          getBadges(),
-        ]);
-
-        setXpStat(stat);
-        setXpDays(formatXpDaysForDisplay(weekly));
-        setTodayXp(today.totalXp);
-        setBadgeAchievedCount(badgeList.achievedCount);
-        setBadgeTotalCount(badgeList.totalCount);
-      } catch (error) {
-        // TODO: 에러 토스트/재시도 처리
-        console.error('활동 데이터를 불러오지 못했습니다.', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     void loadData();
-  }, []);
-
-  const weeklyPercent = Math.round((weeklyGoal.currentMinutes / weeklyGoal.targetMinutes) * 100);
-  const weeklyCurrentLabel = `${Math.floor(weeklyGoal.currentMinutes / 60)}시간 ${weeklyGoal.currentMinutes % 60}분`;
-  const weeklyTargetLabel = `${Math.floor(weeklyGoal.targetMinutes / 60)}시간`;
+  }, [loadData]);
 
   const levelProgressPercent =
     xpStat && xpStat.nextLevelXp > xpStat.currentLevelXp
@@ -100,6 +108,23 @@ export default function ActivityPage() {
         contentContainerClassName="p-4 gap-y-3"
         showsVerticalScrollIndicator={false}
       >
+        {hasLoadError ? (
+          <View className="rounded-sm border border-border bg-white p-4">
+            <Text className="font-semiBold text-sm text-btn-dark">
+              활동 데이터를 불러오지 못했어요
+            </Text>
+            <Text className="mt-1 font-regular text-xs text-text-brown">
+              잠시 후 다시 시도해주세요.
+            </Text>
+            <Pressable
+              className="mt-3 self-start rounded-sm bg-btn-dark px-4 py-2"
+              onPress={() => void loadData()}
+            >
+              <Text className="font-semiBold text-xs text-white">다시 불러오기</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* ① 현재 레벨 */}
         <Text className="font-regular text-xs text-text-brown">① 현재 레벨</Text>
         <View className="overflow-hidden rounded-lg border border-border bg-white">
@@ -221,46 +246,9 @@ export default function ActivityPage() {
           </Text>
         </View>
 
-        {/* ④ 이번 주 목표 */}
-        <Text className="font-regular text-xs text-text-brown">④ 이번 주 목표</Text>
-        <View className="rounded-sm border border-border bg-white p-4">
-          <View className="mb-1 flex-row items-center justify-between">
-            <Text className="font-semiBold text-sm text-btn-dark">이번 주 목표</Text>
-            <View
-              style={{
-                backgroundColor: GREEN_LIGHT,
-                borderWidth: 0.5,
-                borderColor: GREEN_MID,
-                borderRadius: 10,
-                paddingHorizontal: 8,
-                paddingVertical: 2,
-              }}
-            >
-              <Text style={{ fontSize: 11, color: GREEN }}>{weeklyGoal.status}</Text>
-            </View>
-          </View>
-          <Text className="mb-2.5 font-regular text-xs text-text-brown">
-            이번 주 학습시간 목표를 채워보세요!
-          </Text>
-          <View className="h-1 rounded-full bg-[#EDE8DE]">
-            <View
-              className="h-1 rounded-full"
-              style={{ backgroundColor: GREEN, width: `${weeklyPercent}%` }}
-            />
-          </View>
-          <View className="mt-1.5 flex-row justify-between">
-            <Text className="font-regular text-[10px] text-text-brown">
-              {weeklyCurrentLabel} / {weeklyTargetLabel}
-            </Text>
-            <Text className="font-regular text-[10px]" style={{ color: GREEN }}>
-              {weeklyPercent}%
-            </Text>
-          </View>
-        </View>
-
-        {/* ⑤ XP 획득 기록 */}
+        {/* ④ XP 획득 기록 */}
         <View className="flex-row items-center justify-between">
-          <Text className="font-regular text-xs text-text-brown">⑤ XP 획득 기록 (이번 주)</Text>
+          <Text className="font-regular text-xs text-text-brown">④ XP 획득 기록 (이번 주)</Text>
           <Pressable onPress={() => router.push('/(app)/mypage/xp-history')}>
             <Text className="font-regular text-xs" style={{ color: GREEN }}>
               전체 보기 &gt;
@@ -291,7 +279,7 @@ export default function ActivityPage() {
           </View>
         </View>
 
-        {/* ⑥ 레벨 가이드 */}
+        {/* ⑤ 레벨 가이드 */}
         <Pressable
           className="flex-row items-center justify-between rounded-sm border border-border bg-white px-4 py-4"
           onPress={() => router.push('/(app)/mypage/level-guide')}

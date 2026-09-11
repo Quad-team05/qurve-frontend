@@ -1,7 +1,12 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { ApiError } from '@/lib/api/client';
-import { getProblems, submitProblem, type ProblemItem } from '@/lib/api/problem';
+import {
+  completeProblemSet,
+  getProblems,
+  submitProblem,
+  type ProblemItem,
+} from '@/lib/api/problem';
 import { getMyProfile } from '@/lib/api/user';
 import {
   clearProblemSession,
@@ -22,7 +27,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const DEFAULT_CATEGORY = 'LANGUAGE_KNOWLEDGE';
 const DEFAULT_SUB_TYPE = 'CONTEXT_VOCABULARY';
-const DEFAULT_CATEGORY_LABEL = '문자/어휘';
 const DEFAULT_SUB_TYPE_LABEL = '문맥규정';
 const DEFAULT_LEVEL: JlptLevel = 'N5';
 const DEFAULT_COUNT = 20;
@@ -109,19 +113,6 @@ function mapSubTypeToApiValue(subType: string) {
   }
 }
 
-function mapCategoryToLabel(category: string) {
-  switch (category) {
-    case 'LANGUAGE_KNOWLEDGE':
-      return '문자/어휘';
-    case 'GRAMMAR':
-      return '문법';
-    case 'READING':
-      return '독해';
-    default:
-      return category;
-  }
-}
-
 function mapSubTypeToLabel(subType: string) {
   switch (subType) {
     case 'CONTEXT_VOCABULARY':
@@ -172,7 +163,7 @@ function getErrorMessage(error: unknown) {
   return error.message || '문제를 불러오지 못했습니다.';
 }
 
-function renderPassageText(passageText: string) {
+function renderPassageText(passageText: string | null) {
   const normalizedText = passageText?.trim();
 
   if (!normalizedText) return null;
@@ -240,10 +231,6 @@ export default function SolveProblemPage() {
   const offset = useMemo(() => parseOffset(params.offset), [params.offset]);
   const apiCategory = useMemo(() => mapCategoryToApiValue(category), [category]);
   const apiSubType = useMemo(() => mapSubTypeToApiValue(subType), [subType]);
-  const categoryLabel =
-    normalizeParam(params.categoryLabel) ||
-    mapCategoryToLabel(apiCategory) ||
-    DEFAULT_CATEGORY_LABEL;
   const subTypeLabel =
     normalizeParam(params.subTypeLabel) || mapSubTypeToLabel(apiSubType) || DEFAULT_SUB_TYPE_LABEL;
   const displaySubTypeLabel = useMemo(() => mapSubTypeToLabel(subTypeLabel), [subTypeLabel]);
@@ -372,6 +359,19 @@ export default function SolveProblemPage() {
     });
   };
 
+  const submitCurrentQuestion = async () => {
+    if (!currentQuestion || selectedChoiceNumber === null) return;
+
+    const savedSubmission = getProblemSession()?.submissions[currentQuestion.problemId];
+
+    if (savedSubmission?.selectedChoiceNumber === selectedChoiceNumber) {
+      return;
+    }
+
+    const submission = await submitProblem(currentQuestion.problemId, selectedChoiceNumber);
+    setProblemSubmission(currentQuestion.problemId, submission);
+  };
+
   const handleNext = async () => {
     if (!currentQuestion) return;
 
@@ -382,24 +382,10 @@ export default function SolveProblemPage() {
 
     try {
       setIsSubmitting(true);
+      await submitCurrentQuestion();
 
       if (currentQuestionIndex === totalProblemCount - 1) {
-        const submissionTasks = problems.map(async (problem, index) => {
-          const choiceNumber = selectedByQuestion[index];
-
-          if (choiceNumber === null) {
-            return null;
-          }
-
-          const submission = await submitProblem(problem.problemId, {
-            selectedChoiceNumber: choiceNumber,
-          });
-
-          setProblemSubmission(problem.problemId, submission);
-          return submission;
-        });
-
-        await Promise.all(submissionTasks);
+        await completeProblemSet(problems.map((problem) => problem.problemId));
         completeProblemSession();
         router.push('/(app)/learning/problems/result');
         return;

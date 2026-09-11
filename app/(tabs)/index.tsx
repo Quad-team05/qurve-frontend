@@ -8,7 +8,12 @@ import {
   type ChallengeMain,
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
-import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import {
+  getStudyTimeStatistics,
+  getTodayLearning,
+  type StudyTimeStatistics,
+  type TodayLearning,
+} from '@/lib/api/learning';
 import { getProblemAccuracy, type ProblemAccuracy } from '@/lib/api/problem';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import { clearAuthSession, consumeNeedsLevelTest } from '@/lib/auth/session';
@@ -85,6 +90,8 @@ export default function HomeScreen() {
   const [attendance, setAttendance] = useState<Attendance | null>(null);
   const [isAttendanceLoading, setIsAttendanceLoading] = useState(true);
   const [problemAccuracy, setProblemAccuracy] = useState<ProblemAccuracy | null>(null);
+  const [studyTimeStats, setStudyTimeStats] = useState<StudyTimeStatistics | null>(null);
+  const [isStudyTimeLoading, setIsStudyTimeLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -231,7 +238,29 @@ export default function HomeScreen() {
     void loadProblemAccuracy();
   }, [router]);
 
-  const todayStudyMinutes = 20; // TODO: learning.ts의 getStudyTimeStatistics 연동 예정
+  useEffect(() => {
+    const loadStudyTimeStatistics = async () => {
+      try {
+        setIsStudyTimeLoading(true);
+        const result = await getStudyTimeStatistics();
+        setStudyTimeStats(result);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearAuthSession();
+          router.replace('/(app)/auth/login');
+          return;
+        }
+
+        showToast('학습 시간을 불러오지 못했습니다.');
+      } finally {
+        setIsStudyTimeLoading(false);
+      }
+    };
+
+    void loadStudyTimeStatistics();
+  }, [router]);
+
+  const todayStudyMinutes = studyTimeStats?.todayStudyTimeMinutes ?? 0;
   const studyProgressWidth = `${Math.min(
     100,
     Math.round((todayStudyMinutes / DAILY_STUDY_GOAL_MINUTES) * 100),
@@ -304,7 +333,9 @@ export default function HomeScreen() {
             <View className="absolute right-3 top-0 z-10 h-[11px] w-6 rounded-sm bg-[#FFE566] opacity-80" />
             <View className="w-full rounded-sm bg-[#FEF3C7] p-3">
               <Text className="font-regular text-xs text-text-brown">오늘 학습</Text>
-              <Text className="font-semiBold text-2xl text-btn-dark">{todayStudyMinutes}분</Text>
+              <Text className="font-semiBold text-2xl text-btn-dark">
+                {isStudyTimeLoading ? '-' : `${todayStudyMinutes}분`}
+              </Text>
               <Text className="font-regular text-xs text-[#D97706]">
                 목표 {DAILY_STUDY_GOAL_MINUTES}분
               </Text>

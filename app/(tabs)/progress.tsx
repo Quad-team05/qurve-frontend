@@ -1,9 +1,16 @@
 import Text from '@/components/ui/AppText';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
+import { getStudyTimeStatistics, type StudyTimeStatistics } from '@/lib/api/learning';
+import {
+  getProblemAccuracy,
+  getProblemAccuracyTrend,
+  type ProblemAccuracy,
+  type ProblemAccuracyTrend,
+} from '@/lib/api/problem';
 import { ApiError } from '@/lib/api/client';
 import { clearAuthSession } from '@/lib/auth/session';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -31,17 +38,20 @@ function showToast(message: string) {
   Alert.alert(message);
 }
 
-const LineChart = () => {
-  const data = [
-    { label: '월', val: 52 },
-    { label: '화', val: 45 },
-    { label: '수', val: 60 },
-    { label: '목', val: 52 },
-    { label: '금', val: 58 },
-    { label: '토', val: 64 },
-    { label: '일', val: 75 },
-  ];
+function formatMinutes(minutes: number) {
+  if (minutes < 60) return `${minutes}분`;
 
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+
+  return restMinutes > 0 ? `${hours}시간 ${restMinutes}분` : `${hours}시간`;
+}
+
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+const LineChart = ({ data }: { data: { label: string; val: number }[] }) => {
   const w = W;
   const h = 120;
   const pt = 20; // paddingTop
@@ -50,10 +60,10 @@ const LineChart = () => {
   const pr = 10; // paddingRight
   const innerH = h - pt - pb;
   const innerW = w - pl - pr;
-  const min = 30;
-  const max = 85;
+  const min = 0;
+  const max = 100;
 
-  const gx = (i: number) => pl + (i / 6) * innerW;
+  const gx = (i: number) => pl + (i / Math.max(data.length - 1, 1)) * innerW;
   const gy = (v: number) => pt + (1 - (v - min) / (max - min)) * innerH;
 
   const pts = data.map((d, i) => ({ x: gx(i), y: gy(d.val), v: d.val, l: d.label }));
@@ -68,7 +78,7 @@ const LineChart = () => {
           <SvgText
             x={p.x}
             y={p.y - 10}
-            textAnchor={i === 6 ? 'end' : 'middle'}
+            textAnchor={i === data.length - 1 ? 'end' : 'middle'}
             fontSize={9}
             fill={TEXT3}
           >
@@ -87,37 +97,65 @@ export default function ProgressTab() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [studyTimeStats, setStudyTimeStats] = useState<StudyTimeStatistics | null>(null);
+  const [problemAccuracy, setProblemAccuracy] = useState<ProblemAccuracy | null>(null);
+  const [accuracyTrend, setAccuracyTrend] = useState<ProblemAccuracyTrend | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadError, setHasLoadError] = useState(false);
   const tabs = ['일별', '월별', '전체'];
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        setIsProfileLoading(true);
-        const result = await getMyProfile();
-        setProfile(result);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          await clearAuthSession();
-          router.replace('/(app)/auth/login');
-          return;
-        }
+  const loadAnalysis = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setHasLoadError(false);
+      const [profileResult, studyTimeResult, accuracyResult, trendResult] = await Promise.all([
+        getMyProfile(),
+        getStudyTimeStatistics(),
+        getProblemAccuracy(),
+        getProblemAccuracyTrend(),
+      ]);
 
-        showToast('회원 정보를 불러오지 못했습니다.');
-      } finally {
-        setIsProfileLoading(false);
+      setProfile(profileResult);
+      setStudyTimeStats(studyTimeResult);
+      setProblemAccuracy(accuracyResult);
+      setAccuracyTrend(trendResult);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
       }
-    };
 
-    void loadProfile();
+      setHasLoadError(true);
+      showToast('학습 분석 정보를 불러오지 못했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   }, [router]);
+
+  useEffect(() => {
+    void loadAnalysis();
+  }, [loadAnalysis]);
+
+  const dailyStudyTimes = studyTimeStats?.dailyStudyTimes ?? [];
+  const maxStudyMinutes = Math.max(60, ...dailyStudyTimes.map((day) => day.studyTimeMinutes));
+  const todayStudyMinutes = studyTimeStats?.todayStudyTimeMinutes ?? 0;
+  const weeklyStudyMinutes = studyTimeStats?.weeklyStudyTimeMinutes ?? 0;
+  const weeklyStudyBarPercent = clampPercent((weeklyStudyMinutes / 300) * 100);
+  const averageAccuracy = problemAccuracy?.accuracyRate ?? 0;
+  const totalSubmissions = problemAccuracy?.totalSubmissionCount ?? 0;
+  const accuracyChartData =
+    accuracyTrend?.dailyAccuracies.map((day) => ({
+      label: day.dayLabel,
+      val: day.accuracyRate,
+    })) ?? [];
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
       <View className="border-b border-border bg-bg px-4 pb-3 pt-2">
         <Text className="font-regular text-xs text-text-brown">Lv.1 일본어 고수 꿈나무 🌱</Text>
         <Text className="font-semiBold mb-2.5 text-xl text-btn-dark">
-          {isProfileLoading ? '불러오는 중...' : `${profile?.name ?? '-'} 님`}
+          {isLoading ? '불러오는 중...' : `${profile?.name ?? '-'} 님`}
         </Text>
         <View className="flex-row gap-x-2">
           {tabs.map((t, i) => (
@@ -140,6 +178,23 @@ export default function ProgressTab() {
         contentContainerClassName="p-4 gap-y-3.5"
         showsVerticalScrollIndicator={false}
       >
+        {hasLoadError ? (
+          <View className="rounded-sm border border-border bg-white p-4">
+            <Text className="font-semiBold text-sm text-btn-dark">
+              학습 분석 정보를 불러오지 못했어요
+            </Text>
+            <Text className="mt-1 font-regular text-xs text-text-brown">
+              잠시 후 다시 시도해주세요.
+            </Text>
+            <Pressable
+              className="mt-3 self-start rounded-sm bg-btn-dark px-4 py-2"
+              onPress={() => void loadAnalysis()}
+            >
+              <Text className="font-semiBold text-xs text-white">다시 불러오기</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* 막대 그래프 */}
         <View className="relative items-center pt-2">
           <View className="absolute top-0 z-10 h-[13px] w-[50px] rounded-sm bg-[#B8D4F0] opacity-80" />
@@ -148,27 +203,19 @@ export default function ProgressTab() {
               이번 주 학습 시간 (분)
             </Text>
             <View className="flex-row items-end gap-x-1.5" style={{ height: 80 }}>
-              {[
-                ['월', 55],
-                ['화', 70],
-                ['수', 45],
-                ['목', 80],
-                ['금', 60],
-                ['토', 20],
-                ['일', 10],
-              ].map(([d, h], i) => (
-                <View key={String(d)} className="flex-1 items-center">
+              {(isLoading ? [] : dailyStudyTimes).map((day) => (
+                <View key={day.dayOfWeek} className="flex-1 items-center">
                   <Text
                     className="mb-1 text-center font-regular"
-                    style={{ fontSize: 9, color: i < 5 ? TEXT : TEXT3 }}
+                    style={{ fontSize: 9, color: day.studyTimeMinutes > 0 ? TEXT : TEXT3 }}
                   >
-                    {h}분
+                    {day.studyTimeMinutes}분
                   </Text>
                   <View
                     style={{
                       width: '100%',
-                      height: Number(h) * 0.6,
-                      backgroundColor: i < 5 ? ACCENT : '#E0D8C8',
+                      height: Math.max(6, (day.studyTimeMinutes / maxStudyMinutes) * 76),
+                      backgroundColor: day.studyTimeMinutes > 0 ? ACCENT : '#E0D8C8',
                       borderRadius: 2,
                     }}
                   />
@@ -176,10 +223,17 @@ export default function ProgressTab() {
                     className="mt-1 text-center font-regular"
                     style={{ fontSize: 9, color: TEXT3 }}
                   >
-                    {d}
+                    {day.dayLabel}
                   </Text>
                 </View>
               ))}
+              {!isLoading && dailyStudyTimes.length === 0 ? (
+                <View className="flex-1 items-center justify-center">
+                  <Text className="font-regular text-xs text-text-brown">
+                    이번 주 학습 기록이 아직 없어요.
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
         </View>
@@ -190,9 +244,16 @@ export default function ProgressTab() {
             <View className="absolute right-3 top-0 z-10 h-[11px] w-6 rounded-sm bg-[#FFE566] opacity-80" />
             <View className="w-full rounded-sm bg-[#FEF3C7] p-3">
               <Text className="font-regular text-xs text-text-brown">오늘 학습 시간</Text>
-              <Text className="font-semiBold text-2xl text-btn-dark">20분</Text>
+              <Text className="font-semiBold text-2xl text-btn-dark">
+                {isLoading ? '-' : formatMinutes(todayStudyMinutes)}
+              </Text>
               <View className="mt-2 h-0.5 rounded-full bg-black/10">
-                <View className="h-0.5 w-1/3 rounded-full bg-[#D97706]" />
+                <View
+                  className="h-0.5 rounded-full bg-[#D97706]"
+                  style={{
+                    width: `${clampPercent((todayStudyMinutes / 60) * 100)}%`,
+                  }}
+                />
               </View>
             </View>
           </View>
@@ -200,9 +261,14 @@ export default function ProgressTab() {
             <View className="absolute left-3 top-0 z-10 h-[11px] w-6 rounded-sm bg-[#B8E8C0] opacity-80" />
             <View className="w-full rounded-sm bg-[#D1FAE5] p-3">
               <Text className="font-regular text-xs text-text-brown">이번 주 학습</Text>
-              <Text className="font-semiBold text-2xl text-btn-dark">180분</Text>
+              <Text className="font-semiBold text-2xl text-btn-dark">
+                {isLoading ? '-' : formatMinutes(weeklyStudyMinutes)}
+              </Text>
               <View className="mt-2 h-0.5 rounded-full bg-black/10">
-                <View className="h-0.5 w-[72%] rounded-full bg-[#059669]" />
+                <View
+                  className="h-0.5 rounded-full bg-[#059669]"
+                  style={{ width: `${weeklyStudyBarPercent}%` }}
+                />
               </View>
             </View>
           </View>
@@ -213,14 +279,21 @@ export default function ProgressTab() {
           <View className="absolute top-0 z-10 h-[13px] w-[50px] rounded-sm bg-[#B8E8C0] opacity-80" />
           <View className="w-full rounded-sm border border-border bg-white p-4 pt-5">
             <Text className="mb-1.5 font-regular text-xs text-text-brown">
-              평균 정답률 · 상위 23%
+              평균 정답률 · 누적 {isLoading ? '-' : totalSubmissions}문제
             </Text>
-            <Text className="font-semiBold text-4xl text-btn-dark">58%</Text>
+            <Text className="font-semiBold text-4xl text-btn-dark">
+              {isLoading ? '-' : `${averageAccuracy}%`}
+            </Text>
             <View className="mt-2.5 h-0.5 rounded-full bg-border">
-              <View className="h-0.5 w-[58%] rounded-full bg-[#6B7280]" />
+              <View
+                className="h-0.5 rounded-full bg-[#6B7280]"
+                style={{ width: `${averageAccuracy}%` }}
+              />
             </View>
             <Text className="mt-2 font-regular text-xs text-text-brown">
-              잘하고 있어요! 꾸준히! ✨
+              {totalSubmissions > 0
+                ? '최근 풀이 기준으로 계산했어요.'
+                : '문제를 풀면 정답률이 표시돼요.'}
             </Text>
           </View>
         </View>
@@ -230,25 +303,15 @@ export default function ProgressTab() {
           <View className="absolute top-0 z-10 h-[13px] w-[50px] rounded-sm bg-[#FFE566] opacity-80" />
           <View className="w-full rounded-sm border border-border bg-white p-4 pt-5">
             <Text className="mb-3 font-regular text-xs text-text-brown">
-              {isProfileLoading ? '성장 그래프' : `${profile?.name ?? '-'} 님의 성장 그래프`}
+              {isLoading ? '성장 그래프' : `${profile?.name ?? '-'} 님의 성장 그래프`}
             </Text>
-            <LineChart />
-          </View>
-        </View>
-
-        {/* 목표 달성 현황 */}
-        <View className="relative items-center pt-2">
-          <View className="absolute top-0 z-10 h-[13px] w-[50px] rounded-sm bg-[#F9C8D8] opacity-80" />
-          <View className="w-full rounded-sm border border-border bg-white p-4 pt-5">
-            <Text className="mb-1.5 font-regular text-xs text-text-brown">목표 달성 현황</Text>
-            <View className="flex-row items-center justify-between">
-              <Text className="font-semiBold text-sm text-btn-dark">전체 목표 달성률</Text>
-              <Text className="font-semiBold text-2xl text-btn-dark">58%</Text>
-            </View>
-            <View className="mt-2.5 h-0.5 rounded-full bg-border">
-              <View className="h-0.5 w-[58%] rounded-full bg-[#6B7280]" />
-            </View>
-            <Text className="mt-2 font-regular text-xs text-text-brown">누적 학습 164일</Text>
+            <LineChart
+              data={
+                accuracyChartData.length > 0
+                  ? accuracyChartData
+                  : ['월', '화', '수', '목', '금', '토', '일'].map((label) => ({ label, val: 0 }))
+              }
+            />
           </View>
         </View>
       </ScrollView>
