@@ -1,7 +1,7 @@
 import { getAccessToken } from '@/lib/auth/session';
 import { Platform } from 'react-native';
 
-const DEFAULT_API_BASE_URL = 'http://localhost:8080/api';
+const DEFAULT_API_BASE_URL = 'https://qurve.duckdns.org';
 
 function resolveApiBaseUrl() {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL;
