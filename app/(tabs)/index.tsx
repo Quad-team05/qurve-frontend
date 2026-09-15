@@ -72,6 +72,23 @@ const DAY_LABELS: Record<string, string> = {
 
 const DAILY_STUDY_GOAL_MINUTES = 60;
 
+// TODO: 백엔드에 "오늘의 표현" API 생기면 교체
+const DAILY_EXPRESSIONS = [
+  { jp: 'はじめまして。', ko: '처음 뵙겠습니다' },
+  { jp: 'ありがとうございます。', ko: '감사합니다' },
+  { jp: 'すみません。', ko: '죄송합니다 / 실례합니다' },
+  { jp: 'よろしくお願いします。', ko: '잘 부탁드립니다' },
+  { jp: 'お疲れ様でした。', ko: '수고하셨습니다' },
+  { jp: '頑張ってください。', ko: '힘내세요' },
+  { jp: 'お元気ですか。', ko: '잘 지내세요?' },
+];
+
+function getTodayExpression() {
+  const daysSinceEpoch = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+  const index = daysSinceEpoch % DAILY_EXPRESSIONS.length;
+  return DAILY_EXPRESSIONS[index];
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -86,6 +103,8 @@ export default function HomeScreen() {
   const [isAttendanceLoading, setIsAttendanceLoading] = useState(true);
   const [problemAccuracy, setProblemAccuracy] = useState<ProblemAccuracy | null>(null);
   const [todayStudyMinutes, setTodayStudyMinutes] = useState<number | null>(null);
+
+  const todayExpression = getTodayExpression();
 
   useEffect(() => {
     let mounted = true;
@@ -308,8 +327,8 @@ export default function HomeScreen() {
             onPress={() => router.push('/(app)/learning/problems/today')}
           >
             <Text className="mb-1 font-regular text-xs text-text-brown">오늘의 표현</Text>
-            <Text className="font-regular text-2xl text-btn-dark">はじめまして。</Text>
-            <Text className="mt-1 font-regular text-sm text-text-brown">처음 뵙겠습니다</Text>
+            <Text className="font-regular text-2xl text-btn-dark">{todayExpression.jp}</Text>
+            <Text className="mt-1 font-regular text-sm text-text-brown">{todayExpression.ko}</Text>
             <Text className="font-semiBold mt-2 self-end text-sm text-text-brown">
               학습하러 가기 →
             </Text>
@@ -324,9 +343,6 @@ export default function HomeScreen() {
               <Text className="font-regular text-xs text-text-brown">오늘 학습</Text>
               <Text className="font-semiBold text-2xl text-btn-dark">
                 {todayStudyMinutes ?? 0}분
-              </Text>
-              <Text className="font-regular text-xs text-[#D97706]">
-                목표 {DAILY_STUDY_GOAL_MINUTES}분
               </Text>
               <View className="mt-2 h-0.5 rounded-full bg-black/10">
                 <View

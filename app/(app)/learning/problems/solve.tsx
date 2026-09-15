@@ -1,22 +1,22 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { ApiError } from '@/lib/api/client';
+import { saveLearningStudyTime } from '@/lib/api/learning';
 import { getProblems, submitProblem, type ProblemItem } from '@/lib/api/problem';
 import { getMyProfile } from '@/lib/api/user';
+import { type JlptLevel } from '@/lib/api/vocabulary';
 import {
   clearProblemSession,
   completeProblemSession,
   createProblemSession,
   getCompletedProblemSession,
-  getProblemSession,
   loadCompletedProblemSession,
   setProblemCurrentQuestionIndex,
   setProblemSelection,
   setProblemSubmission,
 } from '@/lib/learning/problem-session';
-import { type JlptLevel } from '@/lib/api/vocabulary';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -256,6 +256,7 @@ export default function SolveProblemPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [showStopModal, setShowStopModal] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -316,6 +317,7 @@ export default function SolveProblemPage() {
         setProblems(response.problems);
         setSelectedByQuestion(Array.from({ length: response.problems.length }, () => null));
         setCurrentQuestionIndex(0);
+        startTimeRef.current = Date.now();
         createProblemSession(
           {
             level: resolvedLevel,
@@ -401,6 +403,22 @@ export default function SolveProblemPage() {
 
         await Promise.all(submissionTasks);
         completeProblemSession();
+
+        if (startTimeRef.current) {
+          const elapsedMinutes = Math.max(
+            1,
+            Math.round((Date.now() - startTimeRef.current) / 60000),
+          );
+
+          try {
+            await saveLearningStudyTime(elapsedMinutes);
+          } catch (timeError) {
+            console.error('학습시간 저장에 실패했습니다.', timeError);
+          } finally {
+            startTimeRef.current = null;
+          }
+        }
+
         router.push('/(app)/learning/problems/result');
         return;
       }

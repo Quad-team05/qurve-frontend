@@ -23,9 +23,11 @@ export type Problem = {
   subType: ProblemSubType;
   questionFormat: string;
   questionText: string;
-  passageText: string | null;
+  passageText: string;
   choices: ProblemChoice[];
 };
+
+export type ProblemItem = Problem;
 
 export type ProblemListRequest = {
   level: JlptLevel;

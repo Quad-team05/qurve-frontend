@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
 import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import { getBookmarkedWords } from '@/lib/api/vocabulary';
 import { clearAuthSession } from '@/lib/auth/session';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -166,6 +167,7 @@ export default function StudyPage() {
   const [isChallengeLoading, setIsChallengeLoading] = useState(true);
   const [challengeErrorMessage, setChallengeErrorMessage] = useState('');
   const hasLoadedChallenges = useRef(false);
+  const [bookmarkedWordCount, setBookmarkedWordCount] = useState<number | null>(null);
 
   useEffect(() => {
     const loadTodayLearning = async () => {
@@ -185,6 +187,19 @@ export default function StudyPage() {
 
     void loadTodayLearning();
   }, [router]);
+
+  useEffect(() => {
+    const loadBookmarkedWordCount = async () => {
+      try {
+        const words = await getBookmarkedWords();
+        setBookmarkedWordCount(words.length);
+      } catch (error) {
+        console.error('북마크 단어 개수를 불러오지 못했습니다.', error);
+      }
+    };
+
+    void loadBookmarkedWordCount();
+  }, []);
 
   const loadMainChallenges = useCallback(async () => {
     try {
@@ -433,7 +448,9 @@ export default function StudyPage() {
             onPress={() => moveTo('/(app)/learning/vocab/bookmarked')}
           >
             <Text className="mb-1 font-regular text-xs text-[#3A8F6A]">나의 단어장</Text>
-            <Text className="font-bold text-3xl text-btn-dark">북마크 12개</Text>
+            <Text className="font-bold text-3xl text-btn-dark">
+              북마크 {bookmarkedWordCount ?? 0}개
+            </Text>
             <View className="mt-2 h-1 rounded-full bg-[#BFDCCD]">
               <View className="h-1 w-2/5 rounded-full bg-[#059669]" />
             </View>

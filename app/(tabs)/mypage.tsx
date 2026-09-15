@@ -1,11 +1,16 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { withdraw } from '@/lib/api/auth';
+import {
+  getMyChallenges,
+  normalizeChallengeManagement,
+  type ChallengeManagement,
+} from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import { clearAuthSession } from '@/lib/auth/session';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -35,6 +40,8 @@ export default function MyPage() {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [challengeManagement, setChallengeManagement] = useState<ChallengeManagement | null>(null);
+  const [isChallengeLoading, setIsChallengeLoading] = useState(true);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -58,6 +65,29 @@ export default function MyPage() {
     void loadProfile();
   }, [router]);
 
+  const loadChallengeManagement = useCallback(async () => {
+    try {
+      setIsChallengeLoading(true);
+      const result = normalizeChallengeManagement(await getMyChallenges());
+      setChallengeManagement(result);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+      // 챌린지 달성률은 핵심 흐름이 아니므로 조용히 실패 처리
+    } finally {
+      setIsChallengeLoading(false);
+    }
+  }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadChallengeManagement();
+    }, [loadChallengeManagement]),
+  );
+
   const handleWithdraw = async () => {
     if (isWithdrawing) return;
 
@@ -78,6 +108,8 @@ export default function MyPage() {
       setIsWithdrawing(false);
     }
   };
+
+  const challengeRate = challengeManagement?.totalProgressRate ?? 0;
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -120,9 +152,14 @@ export default function MyPage() {
         {/* 챌린지 달성률 카드 */}
         <View className="rounded-sm border border-border bg-white p-4">
           <Text className="mb-2 font-regular text-xs text-text-brown">챌린지 달성률</Text>
-          <Text className="font-semiBold text-3xl text-btn-dark">32%</Text>
+          <Text className="font-semiBold text-3xl text-btn-dark">
+            {isChallengeLoading ? '-' : `${challengeRate}%`}
+          </Text>
           <View className="mt-3 h-0.5 rounded-full bg-[#EDE8DE]">
-            <View className="h-0.5 w-[32%] rounded-full" style={{ backgroundColor: GREEN }} />
+            <View
+              className="h-0.5 rounded-full"
+              style={{ width: `${challengeRate}%` as `${number}%`, backgroundColor: GREEN }}
+            />
           </View>
         </View>
 

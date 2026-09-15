@@ -1,15 +1,17 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { ApiError } from '@/lib/api/client';
 import { getMyChallenges, normalizeChallengeManagement } from '@/lib/api/challenge';
+import { ApiError } from '@/lib/api/client';
+import type { JlptLevel, VocabWord, VocabWordsData } from '@/lib/api/vocabulary';
 import {
+  addVocabBookmark,
   completeChallengeWords,
   completeVocabUnit,
   getChallengeWords,
   getVocabWords,
+  removeVocabBookmark,
   startVocabUnit,
 } from '@/lib/api/vocabulary';
-import type { JlptLevel, VocabWord, VocabWordsData } from '@/lib/api/vocabulary';
 import { clearAuthSession } from '@/lib/auth/session';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -180,12 +182,28 @@ export default function VocabStudyPage() {
     );
   };
 
-  const toggleBookmark = (wordId: number) => {
+  const toggleBookmark = async (wordId: number) => {
+    const word = words.find((w) => w.wordId === wordId);
+    if (!word) return;
+
+    const nextBookmarked = !word.bookmarked;
+
     setWords((prev) =>
-      prev.map((word) =>
-        word.wordId === wordId ? { ...word, bookmarked: !word.bookmarked } : word,
-      ),
+      prev.map((w) => (w.wordId === wordId ? { ...w, bookmarked: nextBookmarked } : w)),
     );
+
+    try {
+      if (nextBookmarked) {
+        await addVocabBookmark(wordId);
+      } else {
+        await removeVocabBookmark(wordId);
+      }
+    } catch (error) {
+      setWords((prev) =>
+        prev.map((w) => (w.wordId === wordId ? { ...w, bookmarked: !nextBookmarked } : w)),
+      );
+      showToast(error instanceof ApiError ? error.message : '북마크 처리에 실패했습니다.');
+    }
   };
 
   const handleComplete = async () => {

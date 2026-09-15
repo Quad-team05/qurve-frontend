@@ -93,6 +93,7 @@ export default function LevelTestPage() {
 
     try {
       setIsSubmitting(true);
+
       const result = await submitLevelTestResult({
         pre1Answer,
         pre2Answer,
