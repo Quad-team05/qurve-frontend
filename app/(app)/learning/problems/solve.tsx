@@ -21,6 +21,7 @@ import {
   setProblemSelection,
   setProblemSubmission,
 } from '@/lib/learning/problem-session';
+import { saveLearningStudyTime } from '@/lib/api/learning';
 import { type JlptLevel } from '@/lib/api/vocabulary';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -391,6 +392,32 @@ export default function SolveProblemPage() {
     }
   };
 
+  const saveStudyTimeAfterLearning = async () => {
+    const session = getProblemSession();
+
+    if (!session) return true;
+
+    const studyTimeMinutes = Math.max(
+      1,
+      Math.round((Date.now() - session.startedAt) / (1000 * 60)),
+    );
+
+    try {
+      await saveLearningStudyTime(studyTimeMinutes);
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        showToast('로그인이 필요합니다.');
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return false;
+      }
+
+      showToast('학습은 완료됐지만 학습 시간 반영에 실패했습니다.');
+      return true;
+    }
+  };
+
   const handleNext = async () => {
     if (!currentQuestion) return;
 
@@ -405,6 +432,8 @@ export default function SolveProblemPage() {
 
       if (currentQuestionIndex === totalProblemCount - 1) {
         await completeProblemSet(problems.map((problem) => problem.problemId));
+        const isStudyTimeSaved = await saveStudyTimeAfterLearning();
+        if (!isStudyTimeSaved) return;
         const canContinue = await markAttendanceAfterLearning();
         if (!canContinue) return;
         completeProblemSession();

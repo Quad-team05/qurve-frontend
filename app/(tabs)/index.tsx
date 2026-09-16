@@ -240,27 +240,29 @@ export default function HomeScreen() {
     void loadProblemAccuracy();
   }, [router]);
 
-  useEffect(() => {
-    const loadStudyTimeStatistics = async () => {
-      try {
-        setIsStudyTimeLoading(true);
-        const result = await getStudyTimeStatistics();
-        setStudyTimeStats(result);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          await clearAuthSession();
-          router.replace('/(app)/auth/login');
-          return;
-        }
-
-        showToast('학습 시간을 불러오지 못했습니다.');
-      } finally {
-        setIsStudyTimeLoading(false);
+  const loadStudyTimeStatistics = useCallback(async () => {
+    try {
+      setIsStudyTimeLoading(true);
+      const result = await getStudyTimeStatistics();
+      setStudyTimeStats(result);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
       }
-    };
 
-    void loadStudyTimeStatistics();
+      showToast('학습 시간을 불러오지 못했습니다.');
+    } finally {
+      setIsStudyTimeLoading(false);
+    }
   }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadStudyTimeStatistics();
+    }, [loadStudyTimeStatistics]),
+  );
 
   const todayStudyMinutes = studyTimeStats?.todayStudyTimeMinutes ?? 0;
   const studyProgressWidth = `${Math.min(

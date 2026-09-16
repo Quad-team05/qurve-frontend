@@ -1,6 +1,11 @@
 import Text from '@/components/ui/AppText';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
-import { getStudyTimeStatistics, type StudyTimeStatistics } from '@/lib/api/learning';
+import {
+  getMonthlyStudyTimeStatistics,
+  getStudyTimeStatistics,
+  type MonthlyStudyTimeStatistics,
+  type StudyTimeStatistics,
+} from '@/lib/api/learning';
 import {
   getProblemAccuracy,
   getProblemAccuracyTrend,
@@ -10,7 +15,7 @@ import {
 import { ApiError } from '@/lib/api/client';
 import { clearAuthSession } from '@/lib/auth/session';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -28,6 +33,12 @@ const TEXT = '#2A2018';
 const TEXT3 = '#A09080';
 const PURPLE = '#9333EA';
 const W = Dimensions.get('window').width - 64;
+
+type MonthOption = {
+  key: string;
+  label: string;
+  fullLabel: string;
+};
 
 function showToast(message: string) {
   if (Platform.OS === 'android') {
@@ -49,6 +60,61 @@ function formatMinutes(minutes: number) {
 
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function toMonthStart(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function parseProfileCreatedDate(createdAt?: string) {
+  if (!createdAt) return null;
+
+  const createdDate = new Date(createdAt);
+
+  if (Number.isNaN(createdDate.getTime())) return null;
+
+  return createdDate;
+}
+
+function formatMonthOption(date: Date): MonthOption {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+
+  return {
+    key: `${year}-${String(month).padStart(2, '0')}`,
+    label: `${month}월`,
+    fullLabel: `${year}년 ${month}월`,
+  };
+}
+
+function formatYearMonthLabel(yearMonth: string) {
+  const [year, month] = yearMonth.split('-').map(Number);
+
+  if (!year || !month) return yearMonth;
+
+  return `${month}월`;
+}
+
+function formatYearMonthFullLabel(yearMonth: string) {
+  const [year, month] = yearMonth.split('-').map(Number);
+
+  if (!year || !month) return yearMonth;
+
+  return `${year}년 ${month}월`;
+}
+
+function getRecentMonthOptions(createdAt?: string) {
+  const now = new Date();
+  const currentMonth = toMonthStart(now);
+  const signupMonth = parseProfileCreatedDate(createdAt);
+  const minMonth = signupMonth ? toMonthStart(signupMonth) : null;
+
+  return Array.from({ length: 3 }, (_, index) => {
+    const monthDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - index, 1);
+    return monthDate;
+  })
+    .filter((monthDate) => !minMonth || monthDate >= minMonth)
+    .map(formatMonthOption);
 }
 
 const LineChart = ({ data }: { data: { label: string; val: number }[] }) => {
@@ -96,27 +162,33 @@ const LineChart = ({ data }: { data: { label: string; val: number }[] }) => {
 export default function ProgressTab() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [studyTimeStats, setStudyTimeStats] = useState<StudyTimeStatistics | null>(null);
+  const [monthlyStudyTimeStats, setMonthlyStudyTimeStats] =
+    useState<MonthlyStudyTimeStatistics | null>(null);
   const [problemAccuracy, setProblemAccuracy] = useState<ProblemAccuracy | null>(null);
   const [accuracyTrend, setAccuracyTrend] = useState<ProblemAccuracyTrend | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadError, setHasLoadError] = useState(false);
-  const tabs = ['일별', '월별', '전체'];
+  const tabs = ['일별', '월별'];
 
   const loadAnalysis = useCallback(async () => {
     try {
       setIsLoading(true);
       setHasLoadError(false);
-      const [profileResult, studyTimeResult, accuracyResult, trendResult] = await Promise.all([
-        getMyProfile(),
-        getStudyTimeStatistics(),
-        getProblemAccuracy(),
-        getProblemAccuracyTrend(),
-      ]);
+      const [profileResult, studyTimeResult, monthlyStudyTimeResult, accuracyResult, trendResult] =
+        await Promise.all([
+          getMyProfile(),
+          getStudyTimeStatistics(),
+          getMonthlyStudyTimeStatistics(),
+          getProblemAccuracy(),
+          getProblemAccuracyTrend(),
+        ]);
 
       setProfile(profileResult);
       setStudyTimeStats(studyTimeResult);
+      setMonthlyStudyTimeStats(monthlyStudyTimeResult);
       setProblemAccuracy(accuracyResult);
       setAccuracyTrend(trendResult);
     } catch (error) {
@@ -138,9 +210,38 @@ export default function ProgressTab() {
   }, [loadAnalysis]);
 
   const dailyStudyTimes = studyTimeStats?.dailyStudyTimes ?? [];
+  const monthlyOptions = useMemo(() => getRecentMonthOptions(profile?.createdAt), [profile]);
+  const monthlyOptionKeys = useMemo(
+    () => new Set(monthlyOptions.map((month) => month.key)),
+    [monthlyOptions],
+  );
+  const monthlyStudyTimes = useMemo(
+    () =>
+      (monthlyStudyTimeStats?.monthlyStudyTimes ?? [])
+        .filter((month) => monthlyOptionKeys.has(month.yearMonth))
+        .map((month) => ({
+          ...month,
+          label: formatYearMonthLabel(month.yearMonth),
+          fullLabel: formatYearMonthFullLabel(month.yearMonth),
+        })),
+    [monthlyOptionKeys, monthlyStudyTimeStats],
+  );
+  const selectedMonth =
+    monthlyStudyTimes.find((month) => month.yearMonth === selectedMonthKey) ??
+    monthlyStudyTimes[monthlyStudyTimes.length - 1] ??
+    null;
   const maxStudyMinutes = Math.max(60, ...dailyStudyTimes.map((day) => day.studyTimeMinutes));
+  const maxMonthlyStudyMinutes = Math.max(
+    60,
+    ...monthlyStudyTimes.map((month) => month.studyTimeMinutes),
+  );
   const todayStudyMinutes = studyTimeStats?.todayStudyTimeMinutes ?? 0;
   const weeklyStudyMinutes = studyTimeStats?.weeklyStudyTimeMinutes ?? 0;
+  const selectedMonthStudyMinutes = selectedMonth?.studyTimeMinutes ?? 0;
+  const monthlyTotalStudyMinutes = monthlyStudyTimes.reduce(
+    (total, month) => total + month.studyTimeMinutes,
+    0,
+  );
   const weeklyStudyBarPercent = clampPercent((weeklyStudyMinutes / 300) * 100);
   const averageAccuracy = problemAccuracy?.accuracyRate ?? 0;
   const totalSubmissions = problemAccuracy?.totalSubmissionCount ?? 0;
@@ -149,6 +250,18 @@ export default function ProgressTab() {
       label: day.dayLabel,
       val: day.accuracyRate,
     })) ?? [];
+
+  useEffect(() => {
+    if (activeTab !== 1 || monthlyStudyTimes.length === 0) return;
+
+    const hasSelectedMonth = monthlyStudyTimes.some(
+      (month) => month.yearMonth === selectedMonthKey,
+    );
+
+    if (!hasSelectedMonth) {
+      setSelectedMonthKey(monthlyStudyTimes[monthlyStudyTimes.length - 1].yearMonth);
+    }
+  }, [activeTab, monthlyStudyTimes, selectedMonthKey]);
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -195,48 +308,119 @@ export default function ProgressTab() {
           </View>
         ) : null}
 
-        {/* 막대 그래프 */}
-        <View className="relative items-center pt-2">
-          <View className="absolute top-0 z-10 h-[13px] w-[50px] rounded-sm bg-[#B8D4F0] opacity-80" />
-          <View className="w-full rounded-sm border border-border bg-white p-4 pt-5">
-            <Text className="mb-3 font-regular text-xs text-text-brown">
-              이번 주 학습 시간 (분)
-            </Text>
-            <View className="flex-row items-end gap-x-1.5" style={{ height: 80 }}>
-              {(isLoading ? [] : dailyStudyTimes).map((day) => (
-                <View key={day.dayOfWeek} className="flex-1 items-center">
-                  <Text
-                    className="mb-1 text-center font-regular"
-                    style={{ fontSize: 9, color: day.studyTimeMinutes > 0 ? TEXT : TEXT3 }}
-                  >
-                    {day.studyTimeMinutes}분
-                  </Text>
-                  <View
-                    style={{
-                      width: '100%',
-                      height: Math.max(6, (day.studyTimeMinutes / maxStudyMinutes) * 76),
-                      backgroundColor: day.studyTimeMinutes > 0 ? ACCENT : '#E0D8C8',
-                      borderRadius: 2,
-                    }}
-                  />
-                  <Text
-                    className="mt-1 text-center font-regular"
-                    style={{ fontSize: 9, color: TEXT3 }}
-                  >
-                    {day.dayLabel}
-                  </Text>
-                </View>
-              ))}
-              {!isLoading && dailyStudyTimes.length === 0 ? (
-                <View className="flex-1 items-center justify-center">
-                  <Text className="font-regular text-xs text-text-brown">
-                    이번 주 학습 기록이 아직 없어요.
-                  </Text>
-                </View>
-              ) : null}
+        {activeTab === 0 ? (
+          <View className="relative items-center pt-2">
+            <View className="absolute top-0 z-10 h-[13px] w-[50px] rounded-sm bg-[#B8D4F0] opacity-80" />
+            <View className="w-full rounded-sm border border-border bg-white p-4 pt-5">
+              <Text className="mb-3 font-regular text-xs text-text-brown">
+                이번 주 학습 시간 (분)
+              </Text>
+              <View className="flex-row items-end gap-x-1.5" style={{ height: 80 }}>
+                {(isLoading ? [] : dailyStudyTimes).map((day) => (
+                  <View key={day.dayOfWeek} className="flex-1 items-center">
+                    <Text
+                      className="mb-1 text-center font-regular"
+                      style={{ fontSize: 9, color: day.studyTimeMinutes > 0 ? TEXT : TEXT3 }}
+                    >
+                      {day.studyTimeMinutes}분
+                    </Text>
+                    <View
+                      style={{
+                        width: '100%',
+                        height: Math.max(6, (day.studyTimeMinutes / maxStudyMinutes) * 76),
+                        backgroundColor: day.studyTimeMinutes > 0 ? ACCENT : '#E0D8C8',
+                        borderRadius: 2,
+                      }}
+                    />
+                    <Text
+                      className="mt-1 text-center font-regular"
+                      style={{ fontSize: 9, color: TEXT3 }}
+                    >
+                      {day.dayLabel}
+                    </Text>
+                  </View>
+                ))}
+                {!isLoading && dailyStudyTimes.length === 0 ? (
+                  <View className="flex-1 items-center justify-center">
+                    <Text className="font-regular text-xs text-text-brown">
+                      이번 주 학습 기록이 아직 없어요.
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
           </View>
-        </View>
+        ) : (
+          <View className="relative items-center pt-2">
+            <View className="absolute top-0 z-10 h-[13px] w-[50px] rounded-sm bg-[#B8D4F0] opacity-80" />
+            <View className="w-full rounded-sm border border-border bg-white p-4 pt-5">
+              <Text className="mb-3 font-regular text-xs text-text-brown">월간 학습 시간</Text>
+              <View className="mb-4 flex-row gap-x-2">
+                {(isLoading ? [] : monthlyStudyTimes.slice().reverse()).map((month) => (
+                  <Pressable
+                    key={month.yearMonth}
+                    className="flex-1 rounded-sm border border-border px-3 py-2"
+                    onPress={() => setSelectedMonthKey(month.yearMonth)}
+                    style={{
+                      backgroundColor: selectedMonth?.yearMonth === month.yearMonth ? TEXT : '#fff',
+                    }}
+                  >
+                    <Text
+                      className="text-center font-regular text-xs"
+                      style={{
+                        color: selectedMonth?.yearMonth === month.yearMonth ? '#fff' : TEXT3,
+                      }}
+                    >
+                      {month.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View className="mb-4 flex-row items-end gap-x-2" style={{ height: 92 }}>
+                {(isLoading ? [] : monthlyStudyTimes).map((month) => (
+                  <Pressable
+                    key={month.yearMonth}
+                    className="flex-1 items-center"
+                    onPress={() => setSelectedMonthKey(month.yearMonth)}
+                  >
+                    <Text
+                      className="mb-1 text-center font-regular"
+                      style={{
+                        fontSize: 9,
+                        color: month.studyTimeMinutes > 0 ? TEXT : TEXT3,
+                      }}
+                    >
+                      {month.studyTimeMinutes}분
+                    </Text>
+                    <View
+                      style={{
+                        width: '100%',
+                        height: Math.max(8, (month.studyTimeMinutes / maxMonthlyStudyMinutes) * 72),
+                        backgroundColor:
+                          selectedMonth?.yearMonth === month.yearMonth ? ACCENT : '#E0D8C8',
+                        borderRadius: 2,
+                      }}
+                    />
+                    <Text
+                      className="mt-1 text-center font-regular"
+                      style={{ fontSize: 9, color: TEXT3 }}
+                    >
+                      {month.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View className="rounded-sm bg-bg p-4">
+                <Text className="font-semiBold text-base text-btn-dark">
+                  {selectedMonth?.fullLabel ?? '-'} · {formatMinutes(selectedMonthStudyMinutes)}
+                </Text>
+                <Text className="mt-1 font-regular text-xs text-text-brown">
+                  최근 {monthlyStudyTimes.length}개월 누적 {formatMinutes(monthlyTotalStudyMinutes)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* 스탯 2개 */}
         <View className="flex-row gap-x-3">
