@@ -1,81 +1,18 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ApiError } from '@/lib/api/client';
+import {
+  getLevelTestQuestions,
+  saveLevel,
+  submitLevelTestResult,
+  type LearningLanguage,
+  type LevelTestQuestion,
+} from '@/lib/api/level';
+import { clearAuthSession } from '@/lib/auth/session';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-type Question = {
-  prompt: string;
-  sentence: string;
-  options: string[];
-};
-
-const QUESTIONS: Question[] = [
-  {
-    prompt: '밑줄 친 단어의 읽는 방법으로 올바른 것을 고르세요.',
-    sentence: '彼女は毎朝新聞を読みます。',
-    options: ['1. しんもん', '2. しんぶん', '3. せんもん', '4. にゅうもん'],
-  },
-  {
-    prompt: '밑줄 친 단어의 읽는 방법으로 올바른 것을 고르세요.',
-    sentence: '今日は図書館で勉強します。',
-    options: ['1. としょかん', '2. ずしょかん', '3. とそうかん', '4. ずそうかん'],
-  },
-  {
-    prompt: '밑줄 친 단어의 읽는 방법으로 올바른 것을 고르세요.',
-    sentence: '来週、友達と映画を見ます。',
-    options: ['1. えいか', '2. えが', '3. えいが', '4. えがい'],
-  },
-  {
-    prompt: '밑줄 친 단어의 읽는 방법으로 올바른 것을 고르세요.',
-    sentence: '母は毎日料理を作ります。',
-    options: ['1. りょり', '2. りょうり', '3. りょあり', '4. りょうい'],
-  },
-  {
-    prompt: '밑줄 친 단어의 읽는 방법으로 올바른 것을 고르세요.',
-    sentence: '駅まで歩いて行きます。',
-    options: ['1. えき', '2. えぎ', '3. えこ', '4. えく'],
-  },
-  {
-    prompt: '밑줄 친 단어의 읽는 방법으로 올바른 것을 고르세요.',
-    sentence: '昨日、先生に質問しました。',
-    options: ['1. しつもん', '2. しちもん', '3. しっもん', '4. しつぼん'],
-  },
-  {
-    prompt: '밑줄 친 단어의 읽는 방법으로 올바른 것을 고르세요.',
-    sentence: '週末は家族と買い物に行きます。',
-    options: ['1. かいぶつ', '2. かいもの', '3. かいもつ', '4. がいもの'],
-  },
-  {
-    prompt: '밑줄 친 단어의 읽는 방법으로 올바른 것을 고르세요.',
-    sentence: '電車で会社へ通っています。',
-    options: ['1. でんしゃ', '2. てんしゃ', '3. でんさ', '4. てんさ'],
-  },
-  {
-    prompt: '밑줄 친 단어의 읽는 방법으로 올바른 것을 고르세요.',
-    sentence: '朝ご飯を食べました。',
-    options: ['1. あさごぱん', '2. あさごはん', '3. あさはん', '4. あさごばん'],
-  },
-  {
-    prompt: '밑줄 친 단어의 읽는 방법으로 올바른 것을 고르세요.',
-    sentence: '明日は病院へ行く予定です。',
-    options: ['1. びょいん', '2. びょういん', '3. ひょういん', '4. びょおいん'],
-  },
-];
-
-const UNDERLINED_WORDS = [
-  '新聞',
-  '図書館',
-  '映画',
-  '料理',
-  '駅',
-  '質問',
-  '買い物',
-  '電車',
-  '朝ご飯',
-  '病院',
-] as const;
 
 const questionCardShadowStyle = {
   shadowColor: '#000000',
@@ -85,22 +22,127 @@ const questionCardShadowStyle = {
   elevation: 1,
 } as const;
 
+function showToast(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+    return;
+  }
+
+  Alert.alert(message);
+}
+
+function normalizeParam(value?: string | string[]) {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+function parseRequiredAnswer(value?: string | string[]) {
+  const answer = Number(normalizeParam(value));
+  return Number.isInteger(answer) && answer > 0 ? answer : null;
+}
+
+function getLevelTitle(level: number, language: LearningLanguage) {
+  if (language === 'ENGLISH') {
+    if (level <= 2) return '기초 표현 입문자';
+    if (level <= 4) return '일상 문장 학습자';
+    if (level <= 6) return '문장 확장자';
+    if (level <= 8) return '실전 독해자';
+    return '고급 커뮤니케이터';
+  }
+
+  if (level <= 2) return '기초 표현 입문자';
+  if (level <= 4) return '히라가나 탐험가';
+  if (level <= 6) return '문장 확장자';
+  if (level <= 8) return '실전 독해자';
+  return '고급 일본어 러너';
+}
+
+function getLevelDescription(level: number) {
+  if (level <= 2) return '기초 단어와 짧은 표현부터 차근차근 시작하기 좋은 단계예요.';
+  if (level <= 4) return '기본 문장을 읽고 핵심 의미를 파악할 수 있는 단계예요.';
+  if (level <= 6) return '다양한 문형으로 의사 표현을 확장할 수 있는 단계예요.';
+  if (level <= 8) return '조금 긴 문장과 실전 문제에 도전하기 좋은 단계예요.';
+  return '고난도 표현과 독해를 학습해도 좋은 단계예요.';
+}
+
+function getErrorMessage(error: unknown) {
+  if (!(error instanceof ApiError)) return '레벨 테스트를 처리하지 못했습니다.';
+
+  if (error.status === 401 || error.status === 403) {
+    return '로그인이 필요합니다. 다시 로그인해주세요.';
+  }
+
+  return error.message || '레벨 테스트를 처리하지 못했습니다.';
+}
+
 export default function LevelTestPage() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    pre1Answer?: string | string[];
+    pre2Answer?: string | string[];
+    pre3Answer?: string | string[];
+  }>();
+
+  const [questions, setQuestions] = useState<LevelTestQuestion[]>([]);
+  const [learningLanguage, setLearningLanguage] = useState<LearningLanguage>('JAPANESE');
+  const [caseNumber, setCaseNumber] = useState<number | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedByQuestion, setSelectedByQuestion] = useState<(number | null)[]>(
-    Array.from({ length: QUESTIONS.length }, () => null),
-  );
+  const [selectedByQuestion, setSelectedByQuestion] = useState<(number | null)[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const currentQuestion = QUESTIONS[currentQuestionIndex];
-  const underlinedWord = UNDERLINED_WORDS[currentQuestionIndex] ?? '';
-  const selectedIndex = selectedByQuestion[currentQuestionIndex];
-  const progressPercent = ((currentQuestionIndex + 1) / QUESTIONS.length) * 100;
+  const loadQuestions = useCallback(async () => {
+    const pre1Answer = parseRequiredAnswer(params.pre1Answer);
+    const pre2Answer = parseRequiredAnswer(params.pre2Answer);
+    const pre3Answer = parseRequiredAnswer(params.pre3Answer);
 
-  const handleSelectOption = (optionIndex: number) => {
+    if (!pre1Answer || !pre2Answer || !pre3Answer) {
+      setErrorMessage('설문 응답을 확인할 수 없습니다. 설문부터 다시 진행해주세요.');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+      const result = await getLevelTestQuestions({ pre1Answer, pre2Answer, pre3Answer });
+
+      setQuestions(result.questions);
+      setLearningLanguage(result.learningLanguage);
+      setCaseNumber(result.caseNumber);
+      setCurrentQuestionIndex(0);
+      setSelectedByQuestion(Array.from({ length: result.questions.length }, () => null));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
+      setQuestions([]);
+      setSelectedByQuestion([]);
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [params.pre1Answer, params.pre2Answer, params.pre3Answer, router]);
+
+  useEffect(() => {
+    void loadQuestions();
+  }, [loadQuestions]);
+
+  const currentQuestion = questions[currentQuestionIndex];
+  const selectedOptionId = selectedByQuestion[currentQuestionIndex] ?? null;
+  const totalQuestionCount = questions.length;
+  const progressPercent = totalQuestionCount
+    ? ((currentQuestionIndex + 1) / totalQuestionCount) * 100
+    : 0;
+
+  const handleSelectOption = (optionId: number) => {
     setSelectedByQuestion((prev) => {
       const next = [...prev];
-      next[currentQuestionIndex] = optionIndex;
+      next[currentQuestionIndex] = optionId;
       return next;
     });
   };
@@ -110,36 +152,60 @@ export default function LevelTestPage() {
     setCurrentQuestionIndex((prev) => prev - 1);
   };
 
-  const handleNext = () => {
-    if (currentQuestionIndex === QUESTIONS.length - 1) {
-      router.push('/(app)/level/assign');
+  const handleNext = async () => {
+    if (!currentQuestion || !caseNumber) return;
+
+    if (selectedOptionId === null) {
+      showToast('선지를 선택해주세요.');
       return;
     }
-    setCurrentQuestionIndex((prev) => prev + 1);
-  };
 
-  useFocusEffect(
-    useCallback(() => {
-      setCurrentQuestionIndex(0);
-      setSelectedByQuestion(Array.from({ length: QUESTIONS.length }, () => null));
-    }, []),
-  );
-
-  const renderSentence = (sentence: string, word: string) => {
-    if (!word || !sentence.includes(word)) {
-      return <Text className="mb-6 mt-5 font-regular text-lg text-black">{sentence}</Text>;
+    if (currentQuestionIndex < totalQuestionCount - 1) {
+      setCurrentQuestionIndex((prev) => prev + 1);
+      return;
     }
 
-    const [before, ...rest] = sentence.split(word);
-    const after = rest.join(word);
+    const answers = selectedByQuestion.filter((answer): answer is number => answer !== null);
 
-    return (
-      <Text className="mb-6 mt-5 font-regular text-lg text-black">
-        {before}
-        <Text className="font-regular text-lg text-black underline">{word}</Text>
-        {after}
-      </Text>
-    );
+    if (answers.length !== totalQuestionCount) {
+      showToast('모든 문제에 답변해주세요.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const result = await submitLevelTestResult({
+        learningLanguage,
+        caseNumber,
+        answers,
+      });
+
+      await saveLevel(result.level, result.learningLanguage);
+
+      router.replace({
+        pathname: '/(app)/level/assign',
+        params: {
+          learningLanguage: result.learningLanguage,
+          caseNumber: String(result.caseNumber),
+          score: String(result.score),
+          correctCount: String(result.correctCount),
+          wrongCount: String(result.wrongCount),
+          level: String(result.level),
+          title: getLevelTitle(result.level, result.learningLanguage),
+          description: getLevelDescription(result.level),
+        },
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
+      showToast(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -163,70 +229,102 @@ export default function LevelTestPage() {
             <Text className="text-xs font-semibold text-[#A09080]">객관식</Text>
           </Pressable>
           <Pressable className="rounded-sm border border-border bg-white px-4 py-2">
-            <Text className="text-xs font-semibold text-[#A09080]">어휘</Text>
+            <Text className="text-xs font-semibold text-[#A09080]">
+              {learningLanguage === 'ENGLISH' ? '영어' : '일본어'}
+            </Text>
           </Pressable>
         </View>
 
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="pb-4"
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="mx-auto h-[10px] w-[50px] rounded-[1px] bg-[#F9C8D8]" />
-          <View
-            className="mb-4 rounded-sm border border-border bg-white px-4 pb-4 pt-5"
-            style={questionCardShadowStyle}
-          >
-            <Text className="font-bold text-sm text-[#A09080]">Q{currentQuestionIndex + 1}.</Text>
-            <Text className="mt-2 font-regular text-lg text-black">{currentQuestion.prompt}</Text>
+        {isLoading ? (
+          <View className="rounded-sm border border-border bg-white p-4">
+            <Text className="font-regular text-sm text-text-brown">문제를 불러오는 중...</Text>
+          </View>
+        ) : errorMessage ? (
+          <View className="rounded-sm border border-border bg-white p-4">
+            <Text className="font-semiBold text-sm text-btn-dark">{errorMessage}</Text>
+            <Pressable
+              className="mt-3 self-start rounded-sm bg-btn-dark px-4 py-2"
+              onPress={() => router.replace('/(app)/level/test-survey')}
+            >
+              <Text className="font-semiBold text-xs text-white">설문 다시하기</Text>
+            </Pressable>
+          </View>
+        ) : currentQuestion ? (
+          <>
+            <ScrollView
+              className="flex-1"
+              contentContainerClassName="pb-4"
+              showsVerticalScrollIndicator={false}
+            >
+              <View className="mx-auto h-[10px] w-[50px] rounded-[1px] bg-[#F9C8D8]" />
+              <View
+                className="mb-4 rounded-sm border border-border bg-white px-4 pb-4 pt-5"
+                style={questionCardShadowStyle}
+              >
+                <Text className="font-bold text-sm text-[#A09080]">
+                  Q{currentQuestionIndex + 1}.
+                </Text>
+                <Text className="mt-2 font-regular text-lg text-black">
+                  {currentQuestion.questionText}
+                </Text>
+                <Text className="mb-6 mt-2 font-regular text-xs text-[#A09080]">
+                  난이도 {currentQuestion.difficulty}
+                </Text>
 
-            {renderSentence(currentQuestion.sentence, underlinedWord)}
+                {currentQuestion.options.map((option) => {
+                  const selected = option.optionId === selectedOptionId;
+                  return (
+                    <Pressable
+                      key={`q${currentQuestion.questionId}-${option.optionId}`}
+                      onPress={() => handleSelectOption(option.optionId)}
+                      className={`mb-3 rounded-sm border px-[14px] py-4 ${selected ? 'border-[#C8E0D6] bg-[#F2F9EE]' : 'border-border bg-white'}`}
+                    >
+                      <Text
+                        className={`text-sm font-semibold ${selected ? 'text-gray' : 'text-[#2A2018]'}`}
+                      >
+                        {option.optionId}. {option.text}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
 
-            {currentQuestion.options.map((option, idx) => {
-              const selected = idx === selectedIndex;
-              return (
+            <View style={{ paddingBottom: 60 }}>
+              <Text className="pb-[10px] text-sm font-semibold text-[#8C877D]">
+                {currentQuestionIndex + 1} / {totalQuestionCount}
+              </Text>
+              <View className="mb-5 h-[3px] w-full bg-[#E0D8C8]">
+                <View className="h-[3px] bg-gray" style={{ width: `${progressPercent}%` }} />
+              </View>
+
+              <View className="h-px w-full border-t border-dashed border-border" />
+
+              <View className="mt-[18px] flex-row gap-11">
                 <Pressable
-                  key={`q${currentQuestionIndex + 1}-${option}`}
-                  onPress={() => handleSelectOption(idx)}
-                  className={`mb-3 rounded-sm border px-[14px] py-4 ${selected ? 'border-[#C8E0D6] bg-[#F2F9EE]' : 'border-border bg-white'}`}
+                  className={`px-25 h-[43px] flex-1 items-center justify-center rounded-xl border py-3 ${currentQuestionIndex === 0 ? 'border-[#D8D2C7] bg-[#F4F2EE]' : 'border-border bg-white'}`}
+                  onPress={handlePrev}
+                  disabled={currentQuestionIndex === 0 || isSubmitting}
                 >
-                  <Text
-                    className={`text-sm font-semibold ${selected ? 'text-gray' : 'text-[#2A2018]'}`}
-                  >
-                    {option}
+                  <Text className="font-old text-sm text-black">이전</Text>
+                </Pressable>
+                <Pressable
+                  className="px-25 h-[43px] flex-1 items-center justify-center rounded-xl bg-btn-dark py-3"
+                  onPress={handleNext}
+                  disabled={isSubmitting}
+                >
+                  <Text className="font-bold text-sm text-white">
+                    {isSubmitting
+                      ? '제출 중...'
+                      : currentQuestionIndex === totalQuestionCount - 1
+                        ? '결과 보기'
+                        : '다음'}
                   </Text>
                 </Pressable>
-              );
-            })}
-          </View>
-        </ScrollView>
-
-        <View style={{ paddingBottom: 60 }}>
-          <Text className="pb-[10px] text-sm font-semibold text-[#8C877D]">
-            {currentQuestionIndex + 1} / {QUESTIONS.length}
-          </Text>
-          <View className="mb-5 h-[3px] w-full bg-[#E0D8C8]">
-            <View className="h-[3px] bg-gray" style={{ width: `${progressPercent}%` }} />
-          </View>
-
-          <View className="h-px w-full border-t border-dashed border-border" />
-
-          <View className="mt-[18px] flex-row gap-11">
-            <Pressable
-              className={`px-25 h-[43px] flex-1 items-center justify-center rounded-xl border py-3 ${currentQuestionIndex === 0 ? 'border-[#D8D2C7] bg-[#F4F2EE]' : 'border-border bg-white'}`}
-              onPress={handlePrev}
-              disabled={currentQuestionIndex === 0}
-            >
-              <Text className="font-old text-sm text-black">이전</Text>
-            </Pressable>
-            <Pressable
-              className="px-25 h-[43px] flex-1 items-center justify-center rounded-xl bg-btn-dark py-3"
-              onPress={handleNext}
-            >
-              <Text className="font-bold text-sm text-white">다음</Text>
-            </Pressable>
-          </View>
-        </View>
+              </View>
+            </View>
+          </>
+        ) : null}
       </View>
     </SafeAreaView>
   );

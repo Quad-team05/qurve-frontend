@@ -12,6 +12,8 @@ export type LevelOption = {
   text: string;
 };
 
+export type LearningLanguage = 'JAPANESE' | 'ENGLISH';
+
 export type PreQuestion = {
   questionId: number;
   question: string;
@@ -36,17 +38,20 @@ export type LevelTestQuestion = {
 };
 
 export type LevelTestQuestionList = {
+  learningLanguage: LearningLanguage;
+  caseNumber: number;
   questions: LevelTestQuestion[];
 };
 
 export type LevelTestResultRequest = {
-  pre1Answer: number;
-  pre2Answer: number;
-  pre3Answer: number;
+  learningLanguage: LearningLanguage;
+  caseNumber: number;
   answers: number[]; // 정확히 10개
 };
 
 export type LevelTestResult = {
+  learningLanguage: LearningLanguage;
+  caseNumber: number;
   score: number;
   correctCount: number;
   wrongCount: number;
@@ -76,9 +81,9 @@ export async function submitLevelTestResult(request: LevelTestResultRequest) {
   return response.data;
 }
 
-export async function saveLevel(level: number) {
+export async function saveLevel(level: number, learningLanguage: LearningLanguage) {
   await apiFetch<ApiResponse<null>>('/level/save', {
     method: 'POST',
-    body: JSON.stringify({ level }),
+    body: JSON.stringify({ level, learningLanguage }),
   });
 }

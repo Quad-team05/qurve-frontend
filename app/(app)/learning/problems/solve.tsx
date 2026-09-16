@@ -1,5 +1,6 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import { checkAttendance } from '@/lib/api/attendance';
 import { ApiError } from '@/lib/api/client';
 import {
   completeProblemSet,
@@ -8,6 +9,7 @@ import {
   type ProblemItem,
 } from '@/lib/api/problem';
 import { getMyProfile } from '@/lib/api/user';
+import { clearAuthSession } from '@/lib/auth/session';
 import {
   clearProblemSession,
   completeProblemSession,
@@ -372,6 +374,23 @@ export default function SolveProblemPage() {
     setProblemSubmission(currentQuestion.problemId, submission);
   };
 
+  const markAttendanceAfterLearning = async () => {
+    try {
+      await checkAttendance();
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        showToast('로그인이 필요합니다.');
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return false;
+      }
+
+      showToast('학습은 완료됐지만 출석 반영에 실패했습니다.');
+      return true;
+    }
+  };
+
   const handleNext = async () => {
     if (!currentQuestion) return;
 
@@ -386,6 +405,8 @@ export default function SolveProblemPage() {
 
       if (currentQuestionIndex === totalProblemCount - 1) {
         await completeProblemSet(problems.map((problem) => problem.problemId));
+        const canContinue = await markAttendanceAfterLearning();
+        if (!canContinue) return;
         completeProblemSession();
         router.push('/(app)/learning/problems/result');
         return;

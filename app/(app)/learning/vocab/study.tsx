@@ -1,5 +1,6 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import { checkAttendance } from '@/lib/api/attendance';
 import { ApiError } from '@/lib/api/client';
 import { getMyChallenges, normalizeChallengeManagement } from '@/lib/api/challenge';
 import {
@@ -188,6 +189,23 @@ export default function VocabStudyPage() {
     );
   };
 
+  const markAttendanceAfterLearning = async () => {
+    try {
+      await checkAttendance();
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        showToast('로그인이 필요합니다.');
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return false;
+      }
+
+      showToast('학습은 완료됐지만 출석 반영에 실패했습니다.');
+      return true;
+    }
+  };
+
   const handleComplete = async () => {
     if (isCompleting) return;
 
@@ -195,6 +213,8 @@ export default function VocabStudyPage() {
       setIsCompleting(true);
       if (isChallengeMode) {
         const result = await completeChallengeWords(words.map((word) => word.wordId));
+        const canContinue = await markAttendanceAfterLearning();
+        if (!canContinue) return;
         const management = normalizeChallengeManagement(await getMyChallenges());
         const wordChallenge = [
           ...management.activeChallenges,
@@ -219,6 +239,8 @@ export default function VocabStudyPage() {
       }
 
       await completeVocabUnit(level, unitNumber);
+      const canContinue = await markAttendanceAfterLearning();
+      if (!canContinue) return;
       showToast('단어 학습을 완료했습니다.');
       router.back();
     } catch (error) {

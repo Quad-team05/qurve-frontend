@@ -14,6 +14,7 @@ export type UserProfile = {
   name: string;
   nickname: string;
   learningGoal: string | null;
+  learningLanguage?: 'JAPANESE' | 'ENGLISH';
   currentLevel: number | null;
   emailVerified: boolean;
   role: string;

@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
 import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import { getBookmarkedWords } from '@/lib/api/vocabulary';
 import { clearAuthSession } from '@/lib/auth/session';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
@@ -18,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Goal = 'JLPT' | '실생활 일본어';
 type JlptLevel = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
-type LifeLevel = 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5';
+type LifeLevel = `Level ${number}`;
 type Level = JlptLevel | LifeLevel;
 
 function showToast(message: string) {
@@ -159,8 +160,7 @@ export default function StudyPage() {
   const router = useRouter();
   const [goal, setGoal] = useState<Goal>('JLPT');
   const [jlptLevel, setJlptLevel] = useState<JlptLevel>('N3');
-  // TODO: 사용자 정보 API 연동 예정 - 레벨테스트 결과값
-  const lifeLevel: LifeLevel = 'Level 2';
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
   const [mainChallenges, setMainChallenges] = useState<ChallengeMain[]>([]);
@@ -169,6 +169,33 @@ export default function StudyPage() {
   const hasLoadedChallenges = useRef(false);
   const [bookmarkedWordCount, setBookmarkedWordCount] = useState<number | null>(null);
   const [isBookmarkedWordLoading, setIsBookmarkedWordLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+
+      const loadProfile = async () => {
+        try {
+          const result = await getMyProfile();
+
+          if (!mounted) return;
+
+          setProfile(result);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            await clearAuthSession();
+            router.replace('/(app)/auth/login');
+          }
+        }
+      };
+
+      void loadProfile();
+
+      return () => {
+        mounted = false;
+      };
+    }, [router]),
+  );
 
   useEffect(() => {
     const loadTodayLearning = async () => {
@@ -276,6 +303,7 @@ export default function StudyPage() {
   };
 
   const isLife = goal === '실생활 일본어';
+  const lifeLevel: LifeLevel = `Level ${profile?.currentLevel ?? 1}`;
   const displayLevel: Level = isLife ? lifeLevel : jlptLevel;
   const nonWordChallenges = mainChallenges.filter(
     (challenge) => challenge.goalType !== 'WORD_COUNT',

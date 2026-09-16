@@ -198,27 +198,29 @@ export default function HomeScreen() {
     void loadTodayLearning();
   }, [router]);
 
-  useEffect(() => {
-    const loadAttendance = async () => {
-      try {
-        setIsAttendanceLoading(true);
-        const result = await getAttendance();
-        setAttendance(result);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          await clearAuthSession();
-          router.replace('/(app)/auth/login');
-          return;
-        }
-
-        showToast('출석 정보를 불러오지 못했습니다.');
-      } finally {
-        setIsAttendanceLoading(false);
+  const loadAttendance = useCallback(async () => {
+    try {
+      setIsAttendanceLoading(true);
+      const result = await getAttendance();
+      setAttendance(result);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
       }
-    };
 
-    void loadAttendance();
+      showToast('출석 정보를 불러오지 못했습니다.');
+    } finally {
+      setIsAttendanceLoading(false);
+    }
   }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadAttendance();
+    }, [loadAttendance]),
+  );
 
   useEffect(() => {
     const loadProblemAccuracy = async () => {

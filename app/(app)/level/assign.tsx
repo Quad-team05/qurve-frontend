@@ -1,18 +1,8 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const RESULT = {
-  score: 73,
-  total: 100,
-  correct: 7,
-  wrong: 3,
-  level: 'Lv.6',
-  title: '문장 확장자',
-  description: '다양한 문형으로 의사 표현이 가능한 단계예요',
-};
 
 const resultCardShadowStyle = {
   shadowColor: '#000000',
@@ -22,8 +12,51 @@ const resultCardShadowStyle = {
   elevation: 1,
 } as const;
 
+function normalizeParam(value?: string | string[]) {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+function parseNumberParam(value?: string | string[], fallback = 0) {
+  const parsed = Number(normalizeParam(value));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getFallbackTitle(level: number) {
+  if (level <= 2) return '기초 표현 입문자';
+  if (level <= 4) return '기본 문장 학습자';
+  if (level <= 6) return '문장 확장자';
+  if (level <= 8) return '실전 독해자';
+  return '고급 학습자';
+}
+
+function getFallbackDescription(level: number) {
+  if (level <= 2) return '기초 단어와 짧은 표현부터 차근차근 시작하기 좋은 단계예요.';
+  if (level <= 4) return '기본 문장을 읽고 핵심 의미를 파악할 수 있는 단계예요.';
+  if (level <= 6) return '다양한 문형으로 의사 표현을 확장할 수 있는 단계예요.';
+  if (level <= 8) return '조금 긴 문장과 실전 문제에 도전하기 좋은 단계예요.';
+  return '고난도 표현과 독해를 학습해도 좋은 단계예요.';
+}
+
 export default function LevelAssignPage() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    score?: string | string[];
+    correctCount?: string | string[];
+    wrongCount?: string | string[];
+    level?: string | string[];
+    title?: string | string[];
+    description?: string | string[];
+  }>();
+
+  const score = parseNumberParam(params.score);
+  const correctCount = parseNumberParam(params.correctCount);
+  const wrongCount = parseNumberParam(params.wrongCount);
+  const level = parseNumberParam(params.level, 1);
+  const totalScore = 100;
+  const scorePercent = Math.max(0, Math.min(100, score));
+  const title = normalizeParam(params.title) || getFallbackTitle(level);
+  const description = normalizeParam(params.description) || getFallbackDescription(level);
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -43,37 +76,35 @@ export default function LevelAssignPage() {
 
         <View className="mx-auto mt-3 h-[10px] w-[50px] rounded-[1px] bg-[#C8E0D6]" />
         <View
-          className="px-4pt-8 rounded-sm border border-border bg-white py-9"
+          className="rounded-sm border border-border bg-white px-4 py-9"
           style={resultCardShadowStyle}
         >
           <View className="items-center">
-            <Text className="text-text-brownfont-regular text-base">레벨 테스트 완료! ✓</Text>
+            <Text className="font-regular text-base text-text-brown">레벨 테스트 완료! ✓</Text>
             <Text className="mt-2 font-regular text-sm text-text-brown">총 점수</Text>
 
             <View className="mt-3 flex-row items-end">
-              <Text className="text-[44px] font-extrabold text-black">{RESULT.score}</Text>
-              <Text className="mb-1 ml-[1px] font-bold text-lg text-[#A09080]">
-                / {RESULT.total}
-              </Text>
+              <Text className="text-[44px] font-extrabold text-black">{score}</Text>
+              <Text className="mb-1 ml-[1px] font-bold text-lg text-[#A09080]">/ {totalScore}</Text>
             </View>
           </View>
 
           <View className="flex-row items-center justify-between px-4">
             <View className="h-[3px] flex-1 bg-[#E0D8C8]">
-              <View className="h-[3px] w-[70%] bg-gray" />
+              <View className="h-[3px] bg-gray" style={{ width: `${scorePercent}%` }} />
             </View>
           </View>
           <View className="mt-3 flex-row items-center justify-center gap-10">
-            <Text className="font-bold text-sm text-[#059669]">✓ 정답 {RESULT.correct}개</Text>
-            <Text className="font-bold text-sm text-[#CC4444]">✗ 오답 {RESULT.wrong}개</Text>
+            <Text className="font-bold text-sm text-[#059669]">✓ 정답 {correctCount}개</Text>
+            <Text className="font-bold text-sm text-[#CC4444]">✗ 오답 {wrongCount}개</Text>
           </View>
 
           <View className="mt-5 h-px bg-border" />
           <View className="mt-4 items-center">
-            <Text className="font-bold text-2xl text-black">{RESULT.level}</Text>
-            <Text className="mt-3 font-bold text-base text-gray">🧠 {RESULT.title}</Text>
+            <Text className="font-bold text-2xl text-black">Lv.{level}</Text>
+            <Text className="mt-3 font-bold text-base text-gray">🧠 {title}</Text>
             <Text className="mt-2 text-center font-regular text-sm text-text-brown">
-              {RESULT.description}
+              {description}
             </Text>
           </View>
         </View>
@@ -81,7 +112,7 @@ export default function LevelAssignPage() {
         <View className="mt-[18px] flex-row gap-2 pt-5">
           <Pressable
             className="h-[43px] flex-1 items-center justify-center rounded-xl border border-border bg-white px-7 py-3"
-            onPress={() => router.replace('/(app)/level/test')}
+            onPress={() => router.replace('/(app)/level/test-survey')}
           >
             <Text className="font-bold text-base text-[#3C322A]">테스트 다시보기</Text>
           </Pressable>
