@@ -1,8 +1,11 @@
 import Text from '@/components/ui/AppText';
 import { saveAuthSession } from '@/lib/auth/session';
+import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Alert, Platform, ToastAndroid, View } from 'react-native';
+
+WebBrowser.maybeCompleteAuthSession();
 
 function showToast(message: string) {
   if (Platform.OS === 'android') {
@@ -15,12 +18,16 @@ function showToast(message: string) {
 
 export default function SocialCallbackPage() {
   const router = useRouter();
+  const hasHandledCallback = useRef(false);
   const { accessToken, refreshToken } = useLocalSearchParams<{
     accessToken?: string;
     refreshToken?: string;
   }>();
 
   useEffect(() => {
+    if (hasHandledCallback.current) return;
+    hasHandledCallback.current = true;
+
     const completeSocialLogin = async () => {
       if (typeof accessToken !== 'string' || typeof refreshToken !== 'string') {
         showToast('소셜 로그인 응답을 확인할 수 없습니다.');
@@ -28,13 +35,18 @@ export default function SocialCallbackPage() {
         return;
       }
 
-      await saveAuthSession({
-        accessToken,
-        refreshToken,
-        userDetails: {},
-      });
+      try {
+        await saveAuthSession({
+          accessToken,
+          refreshToken,
+          userDetails: {},
+        });
 
-      router.replace('/(tabs)');
+        router.replace('/(tabs)');
+      } catch {
+        showToast('로그인 정보를 저장하지 못했습니다. 다시 시도해주세요.');
+        router.replace('/(app)/auth/login');
+      }
     };
 
     void completeSocialLogin();

@@ -2,6 +2,7 @@ import { API_BASE_URL } from '@/lib/api/client';
 import { saveAuthSession } from '@/lib/auth/session';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -11,10 +12,26 @@ type SocialLoginResult =
   | { success: false; cancelled: false; message: string };
 
 type SocialProvider = 'kakao' | 'naver' | 'google';
-const SOCIAL_CALLBACK_URL = 'qurvefrontend://auth/social-callback';
+const NATIVE_SOCIAL_CALLBACK_URL = 'qurvefrontend://auth/social-callback';
 
 function getSocialBaseUrl() {
   return API_BASE_URL.replace(/\/api\/?$/, '');
+}
+
+export function getSocialCallbackUrl() {
+  if (Platform.OS !== 'web') return NATIVE_SOCIAL_CALLBACK_URL;
+
+  const configuredWebBaseUrl = process.env.EXPO_PUBLIC_WEB_BASE_URL?.replace(/\/$/, '');
+
+  if (configuredWebBaseUrl) {
+    return `${configuredWebBaseUrl}/auth/social-callback`;
+  }
+
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/auth/social-callback`;
+  }
+
+  return Linking.createURL('auth/social-callback');
 }
 
 function extractTokens(callbackUrl: string) {
@@ -37,9 +54,10 @@ async function loginWithProvider(
   providerLabel: string,
 ): Promise<SocialLoginResult> {
   const loginUrl = `${getSocialBaseUrl()}/oauth2/authorization/${provider}`;
+  const callbackUrl = getSocialCallbackUrl();
 
   try {
-    const result = await WebBrowser.openAuthSessionAsync(loginUrl, SOCIAL_CALLBACK_URL);
+    const result = await WebBrowser.openAuthSessionAsync(loginUrl, callbackUrl);
 
     if (result.type === 'cancel' || result.type === 'dismiss') {
       return { success: false, cancelled: true };
