@@ -9,7 +9,6 @@ export default function LevelTestSurveyPage() {
   const router = useRouter();
   const [questions, setQuestions] = useState<PreQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // questionId -> optionId
   const [answers, setAnswers] = useState<Record<number, number>>({});
 
   useEffect(() => {
@@ -40,7 +39,6 @@ export default function LevelTestSurveyPage() {
   const handleStart = () => {
     if (!canStartTest) return;
 
-    // 백엔드는 pre1Answer, pre2Answer, pre3Answer 3개 슬롯을 요구함
     const answerValues = questions.map((q) => answers[q.questionId]);
 
     router.push({
