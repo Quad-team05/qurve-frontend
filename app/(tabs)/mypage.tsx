@@ -200,6 +200,17 @@ export default function MyPage() {
 
           <Pressable
             className="flex-row items-center justify-between border-b border-border px-4 py-4"
+            onPress={() => router.push('/(app)/mypage/language')}
+          >
+            <View className="flex-row items-center gap-x-3">
+              <Text style={{ fontSize: 18 }}>🌐</Text>
+              <Text className="font-regular text-sm text-btn-dark">학습 언어</Text>
+            </View>
+            <Text className="font-regular text-sm text-text-brown">›</Text>
+          </Pressable>
+
+          <Pressable
+            className="flex-row items-center justify-between border-b border-border px-4 py-4"
             onPress={() => router.replace('/(app)/auth/login')}
           >
             <View className="flex-row items-center gap-x-3">

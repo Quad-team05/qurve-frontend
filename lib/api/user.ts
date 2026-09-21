@@ -56,3 +56,17 @@ export async function changeMyPassword(request: UserPasswordChangeRequest) {
     body: JSON.stringify(request),
   });
 }
+
+export type LearningLanguage = 'JAPANESE' | 'ENGLISH';
+
+export type LearningLanguageResult = {
+  learningLanguage: LearningLanguage;
+};
+
+export async function updateLearningLanguage(learningLanguage: LearningLanguage) {
+  const response = await apiFetch<ApiResponse<LearningLanguageResult>>('/users/language', {
+    method: 'PATCH',
+    body: JSON.stringify({ learningLanguage }),
+  });
+  return response.data;
+}
