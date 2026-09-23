@@ -8,6 +8,7 @@ import {
   type ChallengeMain,
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
+import { getTodayExpression, type TodayExpression } from '@/lib/api/expression';
 import {
   getStudyTimeStatistics,
   getTodayLearning,
@@ -82,6 +83,8 @@ export default function HomeScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
+  const [todayExpression, setTodayExpression] = useState<TodayExpression | null>(null);
+  const [isExpressionLoading, setIsExpressionLoading] = useState(true);
   const [mainChallenges, setMainChallenges] = useState<ChallengeMain[]>([]);
   const [isChallengeLoading, setIsChallengeLoading] = useState(true);
   const [challengeErrorMessage, setChallengeErrorMessage] = useState('');
@@ -179,24 +182,46 @@ export default function HomeScreen() {
     void loadProfile();
   }, [router]);
 
-  useEffect(() => {
-    const loadTodayLearning = async () => {
-      try {
-        const result = await getTodayLearning();
-        setTodayLearning(result);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          await clearAuthSession();
-          router.replace('/(app)/auth/login');
-          return;
-        }
-
-        showToast('오늘의 학습 정보를 불러오지 못했습니다.');
+  const loadTodayLearning = useCallback(async () => {
+    try {
+      const result = await getTodayLearning();
+      setTodayLearning(result);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
       }
-    };
 
-    void loadTodayLearning();
+      setTodayLearning(null);
+      showToast('오늘의 학습 정보를 불러오지 못했습니다.');
+    }
   }, [router]);
+
+  const loadTodayExpression = useCallback(async () => {
+    try {
+      setIsExpressionLoading(true);
+      const result = await getTodayExpression();
+      setTodayExpression(result);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
+      setTodayExpression(null);
+    } finally {
+      setIsExpressionLoading(false);
+    }
+  }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadTodayLearning();
+      void loadTodayExpression();
+    }, [loadTodayExpression, loadTodayLearning]),
+  );
 
   const loadAttendance = useCallback(async () => {
     try {
@@ -323,8 +348,16 @@ export default function HomeScreen() {
             onPress={() => router.push('/(app)/learning/problems/today')}
           >
             <Text className="mb-1 font-regular text-xs text-text-brown">오늘의 표현</Text>
-            <Text className="font-regular text-2xl text-btn-dark">はじめまして。</Text>
-            <Text className="mt-1 font-regular text-sm text-text-brown">처음 뵙겠습니다</Text>
+            <Text className="font-regular text-2xl text-btn-dark">
+              {isExpressionLoading
+                ? '불러오는 중...'
+                : (todayExpression?.expression ?? '오늘의 표현을 불러오지 못했어요')}
+            </Text>
+            {todayExpression?.korean ? (
+              <Text className="mt-1 font-regular text-sm text-text-brown">
+                {todayExpression.korean}
+              </Text>
+            ) : null}
             <Text className="font-semiBold mt-2 self-end text-sm text-text-brown">
               학습하러 가기 →
             </Text>

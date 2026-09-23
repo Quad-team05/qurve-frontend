@@ -16,8 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const GREEN_LIGHT = '#E1F5EE';
 const GREEN_BORDER = '#5DCAA5';
 const GREEN_TEXT = '#0F6E56';
-const BORDER = '#E0D8C8';
-
 function showToast(message: string) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
@@ -32,9 +30,7 @@ export default function LanguageSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSwitching, setIsSwitching] = useState(false);
 
-  // TODO: 백엔드 응답에 learningLanguage 필드 확인되면 실제 값으로 교체
-  const currentLanguage: LearningLanguage =
-    (profile as unknown as { learningLanguage?: LearningLanguage })?.learningLanguage ?? 'JAPANESE';
+  const currentLanguage: LearningLanguage = profile?.learningLanguage ?? 'JAPANESE';
 
   useEffect(() => {
     const loadProfile = async () => {

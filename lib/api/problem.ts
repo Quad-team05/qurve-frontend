@@ -1,6 +1,4 @@
 import { apiFetch } from '@/lib/api/client';
-import type { JlptLevel } from '@/lib/api/vocabulary';
-
 type ApiResponse<T> = {
   success: boolean;
   message: string;
@@ -18,29 +16,45 @@ export type ProblemChoice = {
 
 export type Problem = {
   problemId: number;
-  level: JlptLevel;
+  level: string;
+  qurveLevel?: string | null;
+  language?: string | null;
+  cefrLevel?: string | null;
+  usageType?: string | null;
   category: ProblemCategory;
   subType: ProblemSubType;
   questionFormat: string;
+  topic?: string | null;
   questionText: string;
   passageText: string | null;
+  audioUrl?: string | null;
   choices: ProblemChoice[];
 };
 
 export type ProblemItem = Problem;
 
 export type ProblemListRequest = {
-  level: JlptLevel;
+  level?: string;
+  language?: string;
+  cefrLevel?: string;
+  qurveLevel?: string;
+  usageType?: string;
   category: ProblemCategory;
   subType: ProblemSubType;
+  topic?: string;
   count?: number;
   offset?: number;
 };
 
 export type ProblemList = {
-  level: JlptLevel;
+  level: string;
+  qurveLevel?: string | null;
+  language?: string | null;
+  cefrLevel?: string | null;
+  usageType?: string | null;
   category: ProblemCategory;
   subType: ProblemSubType;
+  topic?: string | null;
   totalProblemCount: number;
   offset: number;
   problemCount: number;
@@ -104,10 +118,19 @@ export type ProblemAccuracyTrend = {
 };
 
 export async function getProblems(request: ProblemListRequest) {
-  const params = new URLSearchParams({
+  const params = new URLSearchParams({ category: request.category, subType: request.subType });
+
+  const optionalFilters = {
     level: request.level,
-    category: request.category,
-    subType: request.subType,
+    language: request.language,
+    cefrLevel: request.cefrLevel,
+    qurveLevel: request.qurveLevel,
+    usageType: request.usageType,
+    topic: request.topic,
+  };
+
+  Object.entries(optionalFilters).forEach(([key, value]) => {
+    if (value) params.set(key, value);
   });
 
   if (typeof request.count === 'number' && request.count > 0) {

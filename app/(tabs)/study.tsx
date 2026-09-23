@@ -197,24 +197,35 @@ export default function StudyPage() {
     }, [router]),
   );
 
-  useEffect(() => {
-    const loadTodayLearning = async () => {
-      try {
-        const result = await getTodayLearning();
-        setTodayLearning(result);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          await clearAuthSession();
-          router.replace('/(app)/auth/login');
-          return;
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+
+      const loadTodayLearning = async () => {
+        try {
+          const result = await getTodayLearning();
+          if (mounted) setTodayLearning(result);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            await clearAuthSession();
+            router.replace('/(app)/auth/login');
+            return;
+          }
+
+          if (mounted) {
+            setTodayLearning(null);
+            showToast('오늘의 학습 정보를 불러오지 못했습니다.');
+          }
         }
+      };
 
-        showToast('오늘의 학습 정보를 불러오지 못했습니다.');
-      }
-    };
+      void loadTodayLearning();
 
-    void loadTodayLearning();
-  }, [router]);
+      return () => {
+        mounted = false;
+      };
+    }, [router]),
+  );
 
   const loadMainChallenges = useCallback(async () => {
     try {

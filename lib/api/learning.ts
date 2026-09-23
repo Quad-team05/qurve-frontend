@@ -9,6 +9,10 @@ type ApiResponse<T> = {
 
 export type TodayLearning = {
   level: string;
+  learningLanguage: 'JAPANESE' | 'ENGLISH';
+  language: 'JA' | 'EN';
+  cefrLevel: string | null;
+  qurveLevel: string | null;
   categoryCode: string;
   subTypeCode: string;
   offset: number;

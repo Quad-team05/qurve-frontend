@@ -7,6 +7,7 @@ import {
   getProblems,
   submitProblem,
   type ProblemItem,
+  type ProblemListRequest,
 } from '@/lib/api/problem';
 import { getMyProfile } from '@/lib/api/user';
 import { clearAuthSession } from '@/lib/auth/session';
@@ -84,6 +85,10 @@ function mapCurrentLevelToJlptLevel(currentLevel: number | null | undefined): Jl
 
 function isJlptLevel(value?: string): value is JlptLevel {
   return value === 'N1' || value === 'N2' || value === 'N3' || value === 'N4' || value === 'N5';
+}
+
+function isQurveLevel(value?: string) {
+  return Boolean(value && /^Lv(?:10|[1-9])$/.test(value));
 }
 
 function mapCategoryToApiValue(category: string) {
@@ -218,6 +223,11 @@ export default function SolveProblemPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     level?: string | string[];
+    language?: string | string[];
+    cefrLevel?: string | string[];
+    qurveLevel?: string | string[];
+    usageType?: string | string[];
+    topic?: string | string[];
     category?: string | string[];
     subType?: string | string[];
     count?: string | string[];
@@ -228,6 +238,13 @@ export default function SolveProblemPage() {
 
   const rawLevel = normalizeParam(params.level);
   const levelParam = isJlptLevel(rawLevel) ? rawLevel : undefined;
+  const languageParam = normalizeParam(params.language);
+  const cefrLevelParam = normalizeParam(params.cefrLevel);
+  const qurveLevelParam =
+    normalizeParam(params.qurveLevel) || (isQurveLevel(rawLevel) ? rawLevel : undefined);
+  const usageTypeParam = normalizeParam(params.usageType);
+  const topicParam = normalizeParam(params.topic);
+  const isEnglishLearning = languageParam === 'EN' || Boolean(qurveLevelParam);
   const category = normalizeParam(params.category) || DEFAULT_CATEGORY;
   const subType = normalizeParam(params.subType) || DEFAULT_SUB_TYPE;
   const count = useMemo(() => parseCount(params.count), [params.count]);
@@ -257,8 +274,12 @@ export default function SolveProblemPage() {
 
         const completedSession =
           getCompletedProblemSession() ?? (await loadCompletedProblemSession());
+        const isSameLevel = isEnglishLearning
+          ? completedSession?.request.language === 'EN' &&
+            completedSession.request.qurveLevel === qurveLevelParam
+          : completedSession?.request.level === (levelParam ?? completedSession?.request.level);
         const isSameTodayLearning =
-          completedSession?.request.level === (levelParam ?? completedSession?.request.level) &&
+          isSameLevel &&
           completedSession?.request.category === apiCategory &&
           completedSession?.request.subType === apiSubType &&
           completedSession?.request.offset === offset;
@@ -269,23 +290,41 @@ export default function SolveProblemPage() {
           return;
         }
 
-        const candidateLevels = levelParam
-          ? [levelParam]
-          : buildLevelCandidates(mapCurrentLevelToJlptLevel((await getMyProfile()).currentLevel));
+        const candidateLevels = isEnglishLearning
+          ? []
+          : levelParam
+            ? [levelParam]
+            : buildLevelCandidates(mapCurrentLevelToJlptLevel((await getMyProfile()).currentLevel));
         let response = null;
-        let resolvedLevel = levelParam ?? DEFAULT_LEVEL;
+        let resolvedRequest: ProblemListRequest | null = null;
         let lastProblemNotFoundError: ApiError | null = null;
 
-        for (const level of candidateLevels) {
-          try {
-            response = await getProblems({
+        const requests: ProblemListRequest[] = isEnglishLearning
+          ? [
+              {
+                language: 'EN',
+                cefrLevel: cefrLevelParam,
+                qurveLevel: qurveLevelParam,
+                usageType: usageTypeParam,
+                topic: topicParam,
+                category: apiCategory,
+                subType: apiSubType,
+                count,
+                offset,
+              },
+            ]
+          : candidateLevels.map((level) => ({
               level,
               category: apiCategory,
               subType: apiSubType,
               count,
               offset,
-            });
-            resolvedLevel = level;
+            }));
+
+        for (const request of requests) {
+          try {
+            response = await getProblems(request);
+            resolvedRequest = request;
             break;
           } catch (error) {
             if (error instanceof ApiError && error.code === 'PROBLEM_NOT_FOUND') {
@@ -297,7 +336,7 @@ export default function SolveProblemPage() {
           }
         }
 
-        if (!response) {
+        if (!response || !resolvedRequest) {
           throw lastProblemNotFoundError ?? new Error('문제를 불러오지 못했습니다.');
         }
 
@@ -308,9 +347,7 @@ export default function SolveProblemPage() {
         setCurrentQuestionIndex(0);
         createProblemSession(
           {
-            level: resolvedLevel,
-            category: apiCategory,
-            subType: apiSubType,
+            ...resolvedRequest,
             count: response.problemCount,
             offset: response.offset,
           },
@@ -333,7 +370,21 @@ export default function SolveProblemPage() {
     return () => {
       mounted = false;
     };
-  }, [apiCategory, apiSubType, count, levelParam, offset, retryCount, router]);
+  }, [
+    apiCategory,
+    apiSubType,
+    cefrLevelParam,
+    count,
+    isEnglishLearning,
+    languageParam,
+    levelParam,
+    offset,
+    qurveLevelParam,
+    retryCount,
+    router,
+    topicParam,
+    usageTypeParam,
+  ]);
 
   const currentQuestion = problems[currentQuestionIndex];
   const totalProblemCount = problems.length;

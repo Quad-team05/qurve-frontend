@@ -38,8 +38,14 @@ function isSameTodayLearningSession(
     return false;
   }
 
+  const isSameLevel =
+    todayLearning.language === 'EN'
+      ? completedSession.request.language === 'EN' &&
+        completedSession.request.qurveLevel === (todayLearning.qurveLevel ?? todayLearning.level)
+      : completedSession.request.level === todayLearning.level;
+
   return (
-    completedSession.request.level === todayLearning.level &&
+    isSameLevel &&
     completedSession.request.category === todayLearning.categoryCode &&
     completedSession.request.subType === todayLearning.subTypeCode &&
     completedSession.request.offset === todayLearning.offset &&
@@ -140,6 +146,9 @@ export default function TodayProblemsPage() {
                 pathname: '/(app)/learning/problems/solve',
                 params: {
                   level: todayLearning?.level ?? 'N5',
+                  language: todayLearning?.language ?? 'JA',
+                  cefrLevel: todayLearning?.cefrLevel ?? '',
+                  qurveLevel: todayLearning?.qurveLevel ?? '',
                   category: todayLearning?.categoryCode ?? 'LANGUAGE_KNOWLEDGE',
                   subType: todayLearning?.subTypeCode ?? 'CONTEXT_VOCABULARY',
                   count: String(todayLearning?.totalQuestionCount ?? 20),
