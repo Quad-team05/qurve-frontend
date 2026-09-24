@@ -22,6 +22,10 @@ export type TodayLearning = {
   estimatedMinutes: number;
 };
 
+export type LearningMain = {
+  wrongNoteCount: number;
+};
+
 export type DailyStudyTime = {
   dayOfWeek: string;
   dayLabel: string;
@@ -55,6 +59,13 @@ export type StudyTimeSaveResult = {
 export async function getTodayLearning(date?: string) {
   const query = date ? `?date=${date}` : '';
   const response = await apiFetch<ApiResponse<TodayLearning>>(`/learnings/today${query}`, {
+    method: 'GET',
+  });
+  return response.data;
+}
+
+export async function getLearningMain() {
+  const response = await apiFetch<ApiResponse<LearningMain>>('/learnings/main', {
     method: 'GET',
   });
   return response.data;
