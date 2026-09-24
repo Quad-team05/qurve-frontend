@@ -1,70 +1,50 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { ApiError } from '@/lib/api/client';
+import { getWrongNotes, type WrongNoteSummary } from '@/lib/api/wrongnote';
+import { clearAuthSession } from '@/lib/auth/session';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Calendar, type DateData, LocaleConfig } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-LocaleConfig.locales.en = {
-  dayNames: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+LocaleConfig.locales.ko = {
+  dayNames: ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'],
   dayNamesShort: ['일', '월', '화', '수', '목', '금', '토'],
   monthNames: [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
+    '1월',
+    '2월',
+    '3월',
+    '4월',
+    '5월',
+    '6월',
+    '7월',
+    '8월',
+    '9월',
+    '10월',
+    '11월',
+    '12월',
   ],
   monthNamesShort: [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
+    '1월',
+    '2월',
+    '3월',
+    '4월',
+    '5월',
+    '6월',
+    '7월',
+    '8월',
+    '9월',
+    '10월',
+    '11월',
+    '12월',
   ],
-  today: 'Today',
+  today: '오늘',
 };
-LocaleConfig.defaultLocale = 'en';
+LocaleConfig.defaultLocale = 'ko';
 
-const CARD_ITEMS = [
-  {
-    id: 'wrong-note-1',
-    title: 'JLPT N5 문자/어휘 Unit 1',
-    studiedDate: '2026.05.02',
-    reviewDate: '2026.05.06',
-  },
-  {
-    id: 'wrong-note-2',
-    title: 'JLPT N5 문자/어휘 Unit 1',
-    studiedDate: '2026.05.02',
-    reviewDate: '2026.05.06',
-  },
-];
-
-const calendarCardShadowStyle = {
-  shadowColor: '#000000',
-  shadowOpacity: 0.04,
-  shadowRadius: 6,
-  shadowOffset: { width: 0, height: 1 },
-  elevation: 1,
-} as const;
-
-const noteCardShadowStyle = {
+const cardShadowStyle = {
   shadowColor: '#000000',
   shadowOpacity: 0.04,
   shadowRadius: 6,
@@ -78,8 +58,7 @@ const calendarTheme = {
   textDayFontSize: 12,
   textDayFontWeight: '600',
   dayTextColor: '#000000',
-  textDisabledColor: '#A09080',
-  selectedDayTextColor: '#FFFFFF',
+  textDisabledColor: '#C8C0B0',
   todayTextColor: '#4B5563',
   'stylesheet.calendar.main': {
     week: {
@@ -90,9 +69,7 @@ const calendarTheme = {
     },
   },
   'stylesheet.calendar.header': {
-    header: {
-      display: 'none',
-    },
+    header: { display: 'none' },
     dayHeader: {
       marginTop: 0,
       marginBottom: 20,
@@ -102,128 +79,224 @@ const calendarTheme = {
       fontWeight: '700',
       color: '#A8A092',
     },
-    dayTextAtIndex5: {
-      color: '#7ABDFF',
-    },
-    dayTextAtIndex6: {
-      color: '#FF383C',
-    },
+    dayTextAtIndex5: { color: '#7ABDFF' },
+    dayTextAtIndex6: { color: '#FF383C' },
   },
 } as any;
 
+function toYearMonth(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function changeMonth(yearMonth: string, amount: number) {
+  const [year, month] = yearMonth.split('-').map(Number);
+  return toYearMonth(new Date(year, month - 1 + amount, 1));
+}
+
+function formatDate(value: string | null) {
+  return value ? value.replaceAll('-', '.') : '-';
+}
+
 export default function WrongNoteListPage() {
   const router = useRouter();
-  const [currentMonth, setCurrentMonth] = useState('2026-06-01');
-  const [selectedDate, setSelectedDate] = useState('2026-06-02');
+  const [currentMonth, setCurrentMonth] = useState(() => toYearMonth(new Date()));
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [wrongNoteDates, setWrongNoteDates] = useState<string[]>([]);
+  const [wrongNotes, setWrongNotes] = useState<WrongNoteSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const markedDates: any = {
-    [selectedDate]: {
-      customStyles: {
-        container: {
-          width: 25,
-          height: 25,
-          borderRadius: 12.5,
-          backgroundColor: '#2A2018',
-          alignItems: 'center',
-          justifyContent: 'center',
+  const loadWrongNotes = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+      const result = await getWrongNotes(currentMonth);
+      setWrongNoteDates(result.wrongNoteDates);
+      setWrongNotes(result.wrongNotes);
+      setSelectedDate((previous) => (previous?.startsWith(result.yearMonth) ? previous : null));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+      setWrongNoteDates([]);
+      setWrongNotes([]);
+      setErrorMessage(
+        error instanceof ApiError ? error.message : '오답노트를 불러오지 못했습니다.',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentMonth, router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadWrongNotes();
+    }, [loadWrongNotes]),
+  );
+
+  const markedDates = useMemo(() => {
+    const marks: Record<string, any> = {};
+    wrongNoteDates.forEach((date) => {
+      marks[date] = {
+        customStyles: {
+          container: {
+            width: 25,
+            height: 25,
+            borderRadius: 12.5,
+            backgroundColor: '#F9C8D8',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          text: { color: '#2A2018', fontWeight: '700' },
         },
-        text: {
-          color: '#FFFFFF',
-          fontWeight: '700',
+      };
+    });
+    if (selectedDate) {
+      marks[selectedDate] = {
+        customStyles: {
+          container: {
+            width: 25,
+            height: 25,
+            borderRadius: 12.5,
+            backgroundColor: '#2A2018',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          text: { color: '#FFFFFF', fontWeight: '700' },
         },
-      },
-    },
+      };
+    }
+    return marks;
+  }, [selectedDate, wrongNoteDates]);
+
+  const visibleWrongNotes = useMemo(
+    () =>
+      selectedDate
+        ? wrongNotes.filter((item) => item.wrongAnsweredDate === selectedDate)
+        : wrongNotes,
+    [selectedDate, wrongNotes],
+  );
+
+  const moveMonth = (amount: number) => {
+    setSelectedDate(null);
+    setCurrentMonth((previous) => changeMonth(previous, amount));
   };
 
   const handleDayPress = (day: DateData) => {
-    setSelectedDate(day.dateString);
-  };
-
-  const handlePrevMonth = () => {
-    const [yearString, monthString] = currentMonth.split('-');
-    const baseYear = Number(yearString);
-    const baseMonth = Number(monthString);
-    const prevMonthDate = new Date(baseYear, baseMonth - 2, 1);
-    const nextCurrentMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
-    setCurrentMonth(nextCurrentMonth);
-  };
-
-  const handleNextMonth = () => {
-    const [yearString, monthString] = currentMonth.split('-');
-    const baseYear = Number(yearString);
-    const baseMonth = Number(monthString);
-    const nextMonthDate = new Date(baseYear, baseMonth, 1);
-    const nextCurrentMonth = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
-    setCurrentMonth(nextCurrentMonth);
+    setSelectedDate((previous) => (previous === day.dateString ? null : day.dateString));
   };
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
       <TopBar title="오답노트" />
-
       <ScrollView
         className="flex-1"
         contentContainerClassName="px-4 py-6"
         showsVerticalScrollIndicator={false}
       >
         <View className="mb-3 flex-row items-center justify-between px-1">
-          <Pressable onPress={handlePrevMonth}>
+          <Pressable hitSlop={12} onPress={() => moveMonth(-1)}>
             <Text className="text-sm font-semibold text-text-brown">←</Text>
           </Pressable>
           <Text className="text-sm font-semibold text-text-brown">
-            {currentMonth.slice(0, 7).replace('-', '.')}
+            {currentMonth.replace('-', '.')}
           </Text>
-          <Pressable onPress={handleNextMonth}>
-            <Text className="text-sm font-semibold text-text-brown"> →</Text>
+          <Pressable hitSlop={12} onPress={() => moveMonth(1)}>
+            <Text className="text-sm font-semibold text-text-brown">→</Text>
           </Pressable>
         </View>
 
         <View
           className="rounded-sm border border-border bg-white px-2 pb-2 pt-3"
-          style={calendarCardShadowStyle}
+          style={cardShadowStyle}
         >
           <Calendar
-            initialDate="2026-06-01"
-            current={currentMonth}
+            key={currentMonth}
+            current={`${currentMonth}-01`}
             firstDay={1}
             markingType="custom"
             hideArrows
             hideExtraDays={false}
-            disableAllTouchEventsForDisabledDays
             renderHeader={() => null}
-            enableSwipeMonths
+            enableSwipeMonths={false}
             markedDates={markedDates}
             onDayPress={handleDayPress}
             theme={calendarTheme}
-            style={{
-              borderRadius: 2,
-              paddingBottom: 2,
-            }}
+            style={{ borderRadius: 2, paddingBottom: 2 }}
           />
         </View>
 
-        <Text className="py-3 text-xs text-text-brown">오답노트 목록</Text>
+        <View className="flex-row items-center justify-between py-3">
+          <Text className="text-xs text-text-brown">
+            {selectedDate ? `${formatDate(selectedDate)} 오답` : '오답노트 목록'}
+          </Text>
+          {selectedDate ? (
+            <Pressable onPress={() => setSelectedDate(null)}>
+              <Text className="text-xs font-semibold text-text-brown">전체 보기</Text>
+            </Pressable>
+          ) : null}
+        </View>
 
-        {CARD_ITEMS.map((item) => (
-          <Pressable
-            key={item.id}
-            className="mb-4 rounded-sm border border-border bg-white px-4 py-4"
-            style={noteCardShadowStyle}
-            onPress={() => router.push('/(app)/learning/wrong-note/detail')}
-          >
-            <Text className="font-bold text-xl text-black">{item.title}</Text>
-            <Text className="mt-1 text-sm font-semibold text-text-brown">
-              학습일: {item.studiedDate}
+        {isLoading ? (
+          <View className="rounded-sm border border-border bg-white p-4">
+            <Text className="text-sm text-text-brown">오답노트를 불러오는 중...</Text>
+          </View>
+        ) : null}
+        {!isLoading && errorMessage ? (
+          <View className="rounded-sm border border-border bg-white p-4">
+            <Text className="text-sm text-[#DC2626]">{errorMessage}</Text>
+            <Pressable
+              className="mt-3 self-start rounded-sm bg-btn-dark px-4 py-2"
+              onPress={() => void loadWrongNotes()}
+            >
+              <Text className="text-xs font-semibold text-white">다시 시도</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        {!isLoading && !errorMessage && visibleWrongNotes.length === 0 ? (
+          <View className="rounded-sm border border-border bg-white p-4">
+            <Text className="text-sm text-text-brown">
+              {selectedDate
+                ? '선택한 날짜에 저장된 오답이 없어요.'
+                : '이번 달에 저장된 오답이 없어요.'}
             </Text>
-            <Text className="mt-[1px] text-sm font-semibold text-text-brown">
-              복습일: {item.reviewDate}
-            </Text>
+          </View>
+        ) : null}
 
-            <View className="mt-5 self-end">
-              <Text className="text-sm font-semibold text-text-gray">문제보기 →</Text>
-            </View>
-          </Pressable>
-        ))}
+        {!isLoading &&
+          !errorMessage &&
+          visibleWrongNotes.map((item) => (
+            <Pressable
+              key={`${item.problemId}-${item.wrongSubmissionId}`}
+              className="mb-4 rounded-sm border border-border bg-white px-4 py-4"
+              style={cardShadowStyle}
+              onPress={() =>
+                router.push({
+                  pathname: '/(app)/learning/wrong-note/detail',
+                  params: {
+                    problemId: String(item.problemId),
+                    wrongSubmissionId: String(item.wrongSubmissionId),
+                  },
+                })
+              }
+            >
+              <View className="flex-row items-start justify-between gap-3">
+                <Text className="flex-1 font-bold text-lg text-black">{item.title}</Text>
+                {item.reviewed ? (
+                  <Text className="text-xs font-semibold text-[#059669]">복습 완료</Text>
+                ) : null}
+              </View>
+              <Text className="mt-2 text-sm font-semibold text-text-brown">
+                학습일: {formatDate(item.wrongAnsweredDate)}
+              </Text>
+              <Text className="mt-[1px] text-sm font-semibold text-text-brown">
+                복습일: {formatDate(item.reviewedDate)}
+              </Text>
+              <Text className="mt-5 self-end text-sm font-semibold text-text-gray">문제보기 →</Text>
+            </Pressable>
+          ))}
       </ScrollView>
     </SafeAreaView>
   );

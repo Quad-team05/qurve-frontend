@@ -8,7 +8,7 @@ import {
   type ChallengeMain,
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
-import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import { getLearningMain, getTodayLearning, type TodayLearning } from '@/lib/api/learning';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import { getBookmarkedWords } from '@/lib/api/vocabulary';
 import { clearAuthSession } from '@/lib/auth/session';
@@ -169,6 +169,8 @@ export default function StudyPage() {
   const hasLoadedChallenges = useRef(false);
   const [bookmarkedWordCount, setBookmarkedWordCount] = useState<number | null>(null);
   const [isBookmarkedWordLoading, setIsBookmarkedWordLoading] = useState(true);
+  const [wrongNoteCount, setWrongNoteCount] = useState<number | null>(null);
+  const [isWrongNoteCountLoading, setIsWrongNoteCountLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
@@ -190,6 +192,37 @@ export default function StudyPage() {
       };
 
       void loadProfile();
+
+      return () => {
+        mounted = false;
+      };
+    }, [router]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+
+      const loadWrongNoteCount = async () => {
+        try {
+          setIsWrongNoteCountLoading(true);
+          const learningMain = await getLearningMain();
+
+          if (mounted) setWrongNoteCount(learningMain.wrongNoteCount);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            await clearAuthSession();
+            router.replace('/(app)/auth/login');
+            return;
+          }
+
+          if (mounted) setWrongNoteCount(null);
+        } finally {
+          if (mounted) setIsWrongNoteCountLoading(false);
+        }
+      };
+
+      void loadWrongNoteCount();
 
       return () => {
         mounted = false;
@@ -494,8 +527,10 @@ export default function StudyPage() {
             onPress={() => moveTo('/(app)/learning/wrong-note/list')}
           >
             <Text className="mb-1 font-regular text-xs text-[#8B5EA9]">오답노트</Text>
-            <Text className="font-bold text-3xl text-[#6F3E93]">7개</Text>
-            <Text className="mt-0.5 font-regular text-xs text-[#A67ABD]">북마크 문제</Text>
+            <Text className="font-bold text-3xl text-[#6F3E93]">
+              {isWrongNoteCountLoading ? '-' : `${wrongNoteCount ?? 0}개`}
+            </Text>
+            <Text className="mt-0.5 font-regular text-xs text-[#A67ABD]">저장된 오답</Text>
           </Pressable>
 
           <Pressable
