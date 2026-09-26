@@ -61,7 +61,13 @@ export async function getTodayLearning(date?: string) {
   const response = await apiFetch<ApiResponse<TodayLearning>>(`/learnings/today${query}`, {
     method: 'GET',
   });
-  return response.data;
+  if (response.data.language !== 'EN') return response.data;
+
+  return {
+    ...response.data,
+    totalQuestionCount: Math.max(20, response.data.totalQuestionCount),
+    estimatedMinutes: Math.max(10, response.data.estimatedMinutes),
+  };
 }
 
 export async function getLearningMain() {

@@ -323,7 +323,16 @@ export default function SolveProblemPage() {
 
         for (const request of requests) {
           try {
-            response = await getProblems(request);
+            response = await getProblems(
+              isEnglishLearning
+                ? {
+                    ...request,
+                    category: undefined,
+                    subType: undefined,
+                    offset: 0,
+                  }
+                : request,
+            );
             resolvedRequest = request;
             break;
           } catch (error) {
