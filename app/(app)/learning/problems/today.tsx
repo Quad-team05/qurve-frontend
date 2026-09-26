@@ -9,9 +9,9 @@ import {
   loadCompletedProblemSession,
   type ProblemSession,
 } from '@/lib/learning/problem-session';
-import { useRouter } from 'expo-router';
-import { Alert, Platform, Pressable, ToastAndroid, View } from 'react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Pressable, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const cardShadowStyle = {
@@ -21,15 +21,6 @@ const cardShadowStyle = {
   shadowOffset: { width: 0, height: 1 },
   elevation: 1,
 } as const;
-
-function showToast(message: string) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-    return;
-  }
-
-  Alert.alert(message);
-}
 
 function isSameTodayLearningSession(
   todayLearning: TodayLearning | null,
@@ -58,34 +49,54 @@ export default function TodayProblemsPage() {
   const router = useRouter();
   const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
   const [completedSession, setCompletedSession] = useState<ProblemSession | null>(() =>
     getCompletedProblemSession(),
   );
 
-  useEffect(() => {
-    const loadTodayLearning = async () => {
-      try {
-        const [result, savedSession, profileResult] = await Promise.all([
-          getTodayLearning(),
-          loadCompletedProblemSession(),
-          getMyProfile(),
-        ]);
-        setTodayLearning(result);
-        setCompletedSession(savedSession);
-        setProfile(profileResult);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          await clearAuthSession();
-          router.replace('/(app)/auth/login');
-          return;
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+
+      const loadTodayLearning = async () => {
+        try {
+          setIsLoading(true);
+          setErrorMessage('');
+          const [result, savedSession, profileResult] = await Promise.all([
+            getTodayLearning(),
+            loadCompletedProblemSession(),
+            getMyProfile(),
+          ]);
+          if (!mounted) return;
+          setTodayLearning(result);
+          setCompletedSession(savedSession);
+          setProfile(profileResult);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            await clearAuthSession();
+            router.replace('/(app)/auth/login');
+            return;
+          }
+
+          if (mounted) {
+            setTodayLearning(null);
+            setErrorMessage(
+              error instanceof ApiError ? error.message : '오늘의 학습 정보를 불러오지 못했습니다.',
+            );
+          }
+        } finally {
+          if (mounted) setIsLoading(false);
         }
+      };
 
-        showToast('오늘의 학습 정보를 불러오지 못했습니다.');
-      }
-    };
+      void loadTodayLearning();
 
-    void loadTodayLearning();
-  }, [router]);
+      return () => {
+        mounted = false;
+      };
+    }, [router]),
+  );
 
   const effectiveTodayLearning = useMemo(() => {
     if (!todayLearning || !profile) return null;
@@ -167,10 +178,16 @@ export default function TodayProblemsPage() {
           </Text>
         </View>
 
-        {!hasCompletedTodayLearning ? (
+        {errorMessage ? (
+          <View className="mt-4 rounded-sm border border-border bg-white p-4">
+            <Text className="text-sm text-[#DC2626]">{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {!hasCompletedTodayLearning && !errorMessage ? (
           <Pressable
-            className="mt-4 h-[50px] items-center justify-center rounded-xl bg-btn-dark"
-            disabled={!effectiveTodayLearning}
+            className={`mt-4 h-[50px] items-center justify-center rounded-xl ${isLoading ? 'bg-[#D8D2C7]' : 'bg-btn-dark'}`}
+            disabled={isLoading || !effectiveTodayLearning}
             onPress={() =>
               router.push({
                 pathname: '/(app)/learning/problems/solve',
@@ -190,7 +207,9 @@ export default function TodayProblemsPage() {
               })
             }
           >
-            <Text className="font-bold text-base text-white">시작하기</Text>
+            <Text className="font-bold text-base text-white">
+              {isLoading ? '불러오는 중...' : '시작하기'}
+            </Text>
           </Pressable>
         ) : null}
 

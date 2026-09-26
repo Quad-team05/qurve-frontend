@@ -336,7 +336,6 @@ export default function SolveProblemPage() {
                   }
                 : request,
             );
-
             if (isEnglishLearning) {
               const isDailyLife = learningGoalParam === 'DAILY_LIFE';
               const filteredProblems = response.problems
