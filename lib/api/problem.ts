@@ -39,8 +39,8 @@ export type ProblemListRequest = {
   cefrLevel?: string;
   qurveLevel?: string;
   usageType?: string;
-  category: ProblemCategory;
-  subType: ProblemSubType;
+  category?: ProblemCategory;
+  subType?: ProblemSubType;
   topic?: string;
   count?: number;
   offset?: number;
@@ -118,7 +118,7 @@ export type ProblemAccuracyTrend = {
 };
 
 export async function getProblems(request: ProblemListRequest) {
-  const params = new URLSearchParams({ category: request.category, subType: request.subType });
+  const params = new URLSearchParams();
 
   const optionalFilters = {
     level: request.level,
@@ -126,6 +126,8 @@ export async function getProblems(request: ProblemListRequest) {
     cefrLevel: request.cefrLevel,
     qurveLevel: request.qurveLevel,
     usageType: request.usageType,
+    category: request.category,
+    subType: request.subType,
     topic: request.topic,
   };
 
