@@ -234,6 +234,7 @@ export default function SolveProblemPage() {
     offset?: string | string[];
     categoryLabel?: string | string[];
     subTypeLabel?: string | string[];
+    learningGoal?: string | string[];
   }>();
 
   const rawLevel = normalizeParam(params.level);
@@ -254,6 +255,7 @@ export default function SolveProblemPage() {
   const subTypeLabel =
     normalizeParam(params.subTypeLabel) || mapSubTypeToLabel(apiSubType) || DEFAULT_SUB_TYPE_LABEL;
   const displaySubTypeLabel = useMemo(() => mapSubTypeToLabel(subTypeLabel), [subTypeLabel]);
+  const learningGoalParam = normalizeParam(params.learningGoal);
 
   const [problems, setProblems] = useState<ProblemItem[]>([]);
   const [selectedByQuestion, setSelectedByQuestion] = useState<(number | null)[]>([]);
@@ -329,10 +331,33 @@ export default function SolveProblemPage() {
                     ...request,
                     category: undefined,
                     subType: undefined,
+                    count: 50,
                     offset: 0,
                   }
                 : request,
             );
+            if (isEnglishLearning) {
+              const isDailyLife = learningGoalParam === 'DAILY_LIFE';
+              const filteredProblems = response.problems
+                .filter((problem) =>
+                  isDailyLife
+                    ? problem.category === 'DAILY_ENGLISH'
+                    : problem.category !== 'DAILY_ENGLISH',
+                )
+                .slice(0, count);
+
+              if (filteredProblems.length === 0) {
+                throw new ApiError('학습 목적에 맞는 영어 문제를 찾을 수 없습니다.', 404, {
+                  code: 'PROBLEM_NOT_FOUND',
+                });
+              }
+
+              response = {
+                ...response,
+                problemCount: filteredProblems.length,
+                problems: filteredProblems,
+              };
+            }
             resolvedRequest = request;
             break;
           } catch (error) {
@@ -386,6 +411,7 @@ export default function SolveProblemPage() {
     count,
     isEnglishLearning,
     languageParam,
+    learningGoalParam,
     levelParam,
     offset,
     qurveLevelParam,

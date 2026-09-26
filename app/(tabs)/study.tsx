@@ -9,7 +9,15 @@ import {
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
 import { getLearningMain, getTodayLearning, type TodayLearning } from '@/lib/api/learning';
-import { getMyProfile, type UserProfile } from '@/lib/api/user';
+import {
+  getMyProfile,
+  updateLearningLanguage,
+  updateLearningProfile,
+  type LearningGoal,
+  type LearningLanguage,
+  type LearningStage,
+  type UserProfile,
+} from '@/lib/api/user';
 import { getBookmarkedWords } from '@/lib/api/vocabulary';
 import { clearAuthSession } from '@/lib/auth/session';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
@@ -17,10 +25,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type Goal = 'JLPT' | '실생활 일본어';
+type Goal = 'JLPT' | '실생활 일본어' | '토익' | '실생활 영어';
 type JlptLevel = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
 type LifeLevel = `Level ${number}`;
 type Level = JlptLevel | LifeLevel;
+
+function getToeicStage(currentLevel: number | null | undefined): LearningStage {
+  const level = currentLevel ?? 1;
+
+  if (level >= 9) return 'TOEIC_900_PLUS';
+  if (level >= 7) return 'TOEIC_800_PLUS';
+  if (level >= 5) return 'TOEIC_700_PLUS';
+  if (level >= 3) return 'TOEIC_600_PLUS';
+  return 'TOEIC_500_PLUS';
+}
 
 function showToast(message: string) {
   if (Platform.OS === 'android') {
@@ -88,12 +106,12 @@ function GoalModal({
   currentGoal: Goal;
   currentJlptLevel: JlptLevel;
   onClose: () => void;
-  onConfirm: (goal: Goal, jlptLevel: JlptLevel) => void;
+  onConfirm: (goal: Goal, jlptLevel: JlptLevel) => Promise<void>;
 }) {
   const [selectedGoal, setSelectedGoal] = useState<Goal>(currentGoal);
   const [selectedJlptLevel, setSelectedJlptLevel] = useState<JlptLevel>(currentJlptLevel);
 
-  const goals: Goal[] = ['JLPT', '실생활 일본어'];
+  const goals: Goal[] = ['JLPT', '실생활 일본어', '토익', '실생활 영어'];
   const jlptLevels: JlptLevel[] = ['N1', 'N2', 'N3', 'N4', 'N5'];
 
   useEffect(() => {
@@ -113,43 +131,47 @@ function GoalModal({
     <Modal visible={visible} transparent animationType="fade">
       <Pressable className="flex-1 items-center justify-center bg-black/35" onPress={onClose}>
         <Pressable
-          className="w-4/5 rounded-lg border border-border bg-white p-4"
+          className="max-h-[90%] w-4/5 rounded-lg border border-border bg-white"
           onPress={() => {}}
         >
-          <Text className="mb-2 mt-1 font-regular text-xs text-text-brown">학습 목적 선택</Text>
-          {goals.map((g) => (
+          <ScrollView contentContainerClassName="p-4" showsVerticalScrollIndicator={false}>
+            <Text className="mb-2 mt-1 font-regular text-xs text-text-brown">학습 목적 선택</Text>
+            {goals.map((g) => (
+              <Pressable
+                key={g}
+                className="flex-row items-center justify-between border-b border-bg-strong py-3"
+                onPress={() => handleGoalChange(g)}
+              >
+                <Text className="font-regular text-base text-btn-dark">{g}</Text>
+                <Radio selected={selectedGoal === g} />
+              </Pressable>
+            ))}
+
+            {selectedGoal === 'JLPT' && (
+              <>
+                <Text className="mb-2 mt-5 font-regular text-xs text-text-brown">
+                  JLPT 급수 선택
+                </Text>
+                {jlptLevels.map((l) => (
+                  <Pressable
+                    key={l}
+                    className="flex-row items-center justify-between border-b border-bg-strong py-3"
+                    onPress={() => setSelectedJlptLevel(l)}
+                  >
+                    <Text className="font-regular text-base text-btn-dark">{l}</Text>
+                    <Radio selected={selectedJlptLevel === l} />
+                  </Pressable>
+                ))}
+              </>
+            )}
+
             <Pressable
-              key={g}
-              className="flex-row items-center justify-between border-b border-bg-strong py-3"
-              onPress={() => handleGoalChange(g)}
+              className="mt-5 items-center rounded-sm bg-btn-dark py-3"
+              onPress={() => void onConfirm(selectedGoal, selectedJlptLevel)}
             >
-              <Text className="font-regular text-base text-btn-dark">{g}</Text>
-              <Radio selected={selectedGoal === g} />
+              <Text className="font-semoBold text-base text-white">확인</Text>
             </Pressable>
-          ))}
-
-          {selectedGoal === 'JLPT' && (
-            <>
-              <Text className="mb-2 mt-5 font-regular text-xs text-text-brown">JLPT 급수 선택</Text>
-              {jlptLevels.map((l) => (
-                <Pressable
-                  key={l}
-                  className="flex-row items-center justify-between border-b border-bg-strong py-3"
-                  onPress={() => setSelectedJlptLevel(l)}
-                >
-                  <Text className="font-regular text-base text-btn-dark">{l}</Text>
-                  <Radio selected={selectedJlptLevel === l} />
-                </Pressable>
-              ))}
-            </>
-          )}
-
-          <Pressable
-            className="mt-5 items-center rounded-sm bg-btn-dark py-3"
-            onPress={() => onConfirm(selectedGoal, selectedJlptLevel)}
-          >
-            <Text className="font-semoBold text-base text-white">확인</Text>
-          </Pressable>
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -167,13 +189,17 @@ export default function StudyPage() {
   const [isChallengeLoading, setIsChallengeLoading] = useState(true);
   const [challengeErrorMessage, setChallengeErrorMessage] = useState('');
   const hasLoadedChallenges = useRef(false);
+  const hasInitializedGoal = useRef(false);
   const [bookmarkedWordCount, setBookmarkedWordCount] = useState<number | null>(null);
   const [isBookmarkedWordLoading, setIsBookmarkedWordLoading] = useState(true);
   const [wrongNoteCount, setWrongNoteCount] = useState<number | null>(null);
   const [isWrongNoteCountLoading, setIsWrongNoteCountLoading] = useState(true);
+  const [isGoalUpdating, setIsGoalUpdating] = useState(false);
+  const [languageRevision, setLanguageRevision] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
+      void languageRevision;
       let mounted = true;
 
       const loadProfile = async () => {
@@ -183,6 +209,21 @@ export default function StudyPage() {
           if (!mounted) return;
 
           setProfile(result);
+          setGoal((currentGoal) => {
+            const profileIsEnglish = result.learningLanguage === 'ENGLISH';
+            const currentGoalIsEnglish = currentGoal === '토익' || currentGoal === '실생활 영어';
+
+            if (hasInitializedGoal.current && profileIsEnglish === currentGoalIsEnglish) {
+              return currentGoal;
+            }
+            if (profileIsEnglish) {
+              return result.learningGoal === 'DAILY_LIFE' ? '실생활 영어' : '토익';
+            }
+            return result.learningGoal === 'DAILY_LIFE' ? '실생활 일본어' : 'JLPT';
+          });
+          const stageLabel = result.learningStage?.match(/(N[1-5]|[5-9]00_PLUS)$/)?.[1];
+          if (stageLabel?.startsWith('N')) setJlptLevel(stageLabel as JlptLevel);
+          hasInitializedGoal.current = true;
         } catch (error) {
           if (error instanceof ApiError && error.status === 401) {
             await clearAuthSession();
@@ -196,11 +237,12 @@ export default function StudyPage() {
       return () => {
         mounted = false;
       };
-    }, [router]),
+    }, [languageRevision, router]),
   );
 
   useFocusEffect(
     useCallback(() => {
+      void languageRevision;
       let mounted = true;
 
       const loadWrongNoteCount = async () => {
@@ -227,11 +269,12 @@ export default function StudyPage() {
       return () => {
         mounted = false;
       };
-    }, [router]),
+    }, [languageRevision, router]),
   );
 
   useFocusEffect(
     useCallback(() => {
+      void languageRevision;
       let mounted = true;
 
       const loadTodayLearning = async () => {
@@ -257,10 +300,11 @@ export default function StudyPage() {
       return () => {
         mounted = false;
       };
-    }, [router]),
+    }, [languageRevision, router]),
   );
 
   const loadMainChallenges = useCallback(async () => {
+    void languageRevision;
     try {
       if (!hasLoadedChallenges.current) {
         setIsChallengeLoading(true);
@@ -289,7 +333,7 @@ export default function StudyPage() {
     } finally {
       setIsChallengeLoading(false);
     }
-  }, [router]);
+  }, [languageRevision, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -299,9 +343,16 @@ export default function StudyPage() {
 
   useFocusEffect(
     useCallback(() => {
+      void languageRevision;
       let mounted = true;
 
       const loadBookmarkedWords = async () => {
+        if (profile?.learningLanguage === 'ENGLISH') {
+          setBookmarkedWordCount(0);
+          setIsBookmarkedWordLoading(false);
+          return;
+        }
+
         try {
           setIsBookmarkedWordLoading(true);
           const words = await getBookmarkedWords();
@@ -331,24 +382,68 @@ export default function StudyPage() {
       return () => {
         mounted = false;
       };
-    }, [router]),
+    }, [languageRevision, profile?.learningLanguage, router]),
   );
 
-  const handleConfirm = (newGoal: Goal, newJlptLevel: JlptLevel) => {
-    setGoal(newGoal);
-    if (newGoal === 'JLPT') {
-      setJlptLevel(newJlptLevel);
+  const handleConfirm = async (newGoal: Goal, newJlptLevel: JlptLevel) => {
+    if (isGoalUpdating) return;
+
+    const nextLanguage: LearningLanguage =
+      newGoal === '토익' || newGoal === '실생활 영어' ? 'ENGLISH' : 'JAPANESE';
+    const currentLanguage = profile?.learningLanguage ?? 'JAPANESE';
+    const learningGoal: LearningGoal =
+      newGoal === 'JLPT' ? 'JLPT' : newGoal === '토익' ? 'TOEIC' : 'DAILY_LIFE';
+    const learningStage: LearningStage | null =
+      newGoal === 'JLPT'
+        ? (`JLPT_${newJlptLevel}` as LearningStage)
+        : newGoal === '토익'
+          ? getToeicStage(profile?.currentLevel)
+          : null;
+
+    try {
+      setIsGoalUpdating(true);
+      if (nextLanguage !== currentLanguage) {
+        await updateLearningLanguage(nextLanguage);
+      }
+      const updatedLearningProfile = await updateLearningProfile(learningGoal, learningStage);
+
+      setGoal(newGoal);
+      if (newGoal === 'JLPT') setJlptLevel(newJlptLevel);
+      setProfile((previous) =>
+        previous
+          ? {
+              ...previous,
+              learningLanguage: nextLanguage,
+              learningGoal: updatedLearningProfile.learningGoal,
+              learningStage: updatedLearningProfile.learningStage,
+              currentLevel: updatedLearningProfile.currentLevel,
+            }
+          : previous,
+      );
+      setTodayLearning(null);
+      setMainChallenges([]);
+      setWrongNoteCount(null);
+      hasLoadedChallenges.current = false;
+      setLanguageRevision((previous) => previous + 1);
+      setModalVisible(false);
+      showToast(
+        nextLanguage === 'ENGLISH' ? '영어 학습으로 전환했어요.' : '일본어 학습으로 전환했어요.',
+      );
+    } catch (error) {
+      showToast(error instanceof ApiError ? error.message : '학습 목적 변경에 실패했습니다.');
+    } finally {
+      setIsGoalUpdating(false);
     }
-    setModalVisible(false);
   };
 
   const moveTo = (href: Href) => {
     router.push(href);
   };
 
-  const isLife = goal === '실생활 일본어';
+  const isEnglish = goal === '토익' || goal === '실생활 영어';
+  const isLife = goal === '실생활 일본어' || goal === '실생활 영어';
   const lifeLevel: LifeLevel = `Level ${profile?.currentLevel ?? 1}`;
-  const displayLevel: Level = isLife ? lifeLevel : jlptLevel;
+  const displayLevel: Level = isEnglish || isLife ? lifeLevel : jlptLevel;
   const nonWordChallenges = mainChallenges.filter(
     (challenge) => challenge.goalType !== 'WORD_COUNT',
   );
@@ -454,7 +549,7 @@ export default function StudyPage() {
           </View>
         ) : null}
 
-        {wordChallenge && !isChallengeLoading && !challengeErrorMessage ? (
+        {!isEnglish && wordChallenge && !isChallengeLoading && !challengeErrorMessage ? (
           <View className="relative items-center pt-[8px]">
             <View className="absolute top-0 z-10 h-[10px] w-[50px] rounded-[1px] bg-[#C7E8FF]" />
             <Pressable
@@ -511,7 +606,9 @@ export default function StudyPage() {
             <Text className="font-bold text-lg text-btn-dark">
               {todayLearning
                 ? `${todayLearning.category} · ${todayLearning.title}`
-                : '문자/어휘 · 문맥규정'}
+                : isEnglish
+                  ? '영어 학습 · 오늘의 문제'
+                  : '문자/어휘 · 문맥규정'}
             </Text>
             <Text className="mt-0.5 font-regular text-xs text-text-brown">
               총 {todayLearning?.totalQuestionCount ?? 20}문제 · 예상{' '}
@@ -533,33 +630,37 @@ export default function StudyPage() {
             <Text className="mt-0.5 font-regular text-xs text-[#A67ABD]">저장된 오답</Text>
           </Pressable>
 
-          <Pressable
-            className="flex-1 rounded-sm bg-[#FFF9E9] p-3"
-            onPress={() => moveTo('/(app)/learning/vocab/list')}
-          >
-            <Text className="mb-1 font-regular text-xs text-[#B9932D]">단어장</Text>
-            <Text className="font-bold text-3xl text-[#967411]">{jlptLevel}</Text>
-            <Text className="mt-0.5 font-regular text-xs text-[#C4A657]">UNIT 1 학습중</Text>
-          </Pressable>
+          {!isEnglish ? (
+            <Pressable
+              className="flex-1 rounded-sm bg-[#FFF9E9] p-3"
+              onPress={() => moveTo('/(app)/learning/vocab/list')}
+            >
+              <Text className="mb-1 font-regular text-xs text-[#B9932D]">단어장</Text>
+              <Text className="font-bold text-3xl text-[#967411]">{jlptLevel}</Text>
+              <Text className="mt-0.5 font-regular text-xs text-[#C4A657]">UNIT 1 학습중</Text>
+            </Pressable>
+          ) : null}
         </View>
 
-        <View className="relative items-center pt-[8px]">
-          <Pressable
-            className="w-full rounded-sm bg-[#EEF8F4] p-4"
-            onPress={() => moveTo('/(app)/learning/vocab/bookmarked')}
-          >
-            <Text className="mb-1 font-regular text-xs text-[#3A8F6A]">나의 단어장</Text>
-            <Text className="font-bold text-3xl text-btn-dark">
-              {isBookmarkedWordLoading ? '-' : `북마크 ${bookmarkedWordCount ?? 0}개`}
-            </Text>
-            <View className="mt-2 h-1 rounded-full bg-[#BFDCCD]">
-              <View
-                className="h-1 rounded-full bg-[#059669]"
-                style={{ width: bookmarkedWordProgressWidth }}
-              />
-            </View>
-          </Pressable>
-        </View>
+        {!isEnglish ? (
+          <View className="relative items-center pt-[8px]">
+            <Pressable
+              className="w-full rounded-sm bg-[#EEF8F4] p-4"
+              onPress={() => moveTo('/(app)/learning/vocab/bookmarked')}
+            >
+              <Text className="mb-1 font-regular text-xs text-[#3A8F6A]">나의 단어장</Text>
+              <Text className="font-bold text-3xl text-btn-dark">
+                {isBookmarkedWordLoading ? '-' : `북마크 ${bookmarkedWordCount ?? 0}개`}
+              </Text>
+              <View className="mt-2 h-1 rounded-full bg-[#BFDCCD]">
+                <View
+                  className="h-1 rounded-full bg-[#059669]"
+                  style={{ width: bookmarkedWordProgressWidth }}
+                />
+              </View>
+            </Pressable>
+          </View>
+        ) : null}
       </ScrollView>
 
       <GoalModal

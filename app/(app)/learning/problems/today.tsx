@@ -3,6 +3,7 @@ import TopBar from '@/components/ui/TopBar';
 import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
 import { ApiError } from '@/lib/api/client';
 import { clearAuthSession } from '@/lib/auth/session';
+import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import {
   getCompletedProblemSession,
   loadCompletedProblemSession,
@@ -47,6 +48,7 @@ function isSameTodayLearningSession(
 export default function TodayProblemsPage() {
   const router = useRouter();
   const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [completedSession, setCompletedSession] = useState<ProblemSession | null>(() =>
@@ -61,13 +63,15 @@ export default function TodayProblemsPage() {
         try {
           setIsLoading(true);
           setErrorMessage('');
-          const [result, savedSession] = await Promise.all([
+          const [result, savedSession, profileResult] = await Promise.all([
             getTodayLearning(),
             loadCompletedProblemSession(),
+            getMyProfile(),
           ]);
           if (!mounted) return;
           setTodayLearning(result);
           setCompletedSession(savedSession);
+          setProfile(profileResult);
         } catch (error) {
           if (error instanceof ApiError && error.status === 401) {
             await clearAuthSession();
@@ -94,6 +98,31 @@ export default function TodayProblemsPage() {
     }, [router]),
   );
 
+  const effectiveTodayLearning = useMemo(() => {
+    if (!todayLearning || !profile) return null;
+
+    if (profile.learningLanguage === 'JAPANESE') {
+      const selectedJlptLevel = profile.learningStage?.match(/^JLPT_(N[1-5])$/)?.[1];
+      return {
+        ...todayLearning,
+        level:
+          profile.learningGoal === 'DAILY_LIFE' ? 'N5' : selectedJlptLevel || todayLearning.level,
+      };
+    }
+
+    const isDailyLife = profile.learningGoal === 'DAILY_LIFE';
+    return {
+      ...todayLearning,
+      category: isDailyLife ? '실생활 영어' : '토익',
+      title: isDailyLife ? '상황별 표현' : '종합 문제',
+      categoryCode: isDailyLife ? 'DAILY_ENGLISH' : 'TOEIC',
+      subTypeCode: 'ALL',
+      offset: 0,
+      totalQuestionCount: isDailyLife ? 10 : 20,
+      estimatedMinutes: isDailyLife ? 5 : 10,
+    };
+  }, [profile, todayLearning]);
+
   const completedSummary = useMemo(() => {
     if (!completedSession) return null;
 
@@ -114,7 +143,7 @@ export default function TodayProblemsPage() {
   }, [completedSession]);
 
   const hasCompletedTodayLearning = Boolean(
-    completedSummary && isSameTodayLearningSession(todayLearning, completedSession),
+    completedSummary && isSameTodayLearningSession(effectiveTodayLearning, completedSession),
   );
   const safeCompletedSummary = completedSummary ?? {
     totalCount: 0,
@@ -133,19 +162,19 @@ export default function TodayProblemsPage() {
           style={cardShadowStyle}
         >
           <Text className="mt-2 text-base text-[#2A2018]">
-            • {todayLearning?.category ?? '문자 / 어휘'}
+            • {effectiveTodayLearning?.category ?? '불러오는 중...'}
           </Text>
           <Text className="mt-2 text-base text-[#2A2018]">
-            • {todayLearning?.title ?? '문맥규정'}
+            • {effectiveTodayLearning?.title ?? '불러오는 중...'}
           </Text>
 
           <View className="my-5 h-px bg-border" />
 
           <Text className="text-sm font-semibold text-text-brown">
-            • 총 {todayLearning?.totalQuestionCount ?? 20}문제
+            • 총 {effectiveTodayLearning?.totalQuestionCount ?? '-'}문제
           </Text>
           <Text className="mt-2 text-sm font-semibold text-text-brown">
-            • 예상 풀이 시간: {todayLearning?.estimatedMinutes ?? 10}분
+            • 예상 풀이 시간: {effectiveTodayLearning?.estimatedMinutes ?? '-'}분
           </Text>
         </View>
 
@@ -158,21 +187,22 @@ export default function TodayProblemsPage() {
         {!hasCompletedTodayLearning && !errorMessage ? (
           <Pressable
             className={`mt-4 h-[50px] items-center justify-center rounded-xl ${isLoading ? 'bg-[#D8D2C7]' : 'bg-btn-dark'}`}
-            disabled={isLoading || !todayLearning}
+            disabled={isLoading || !effectiveTodayLearning}
             onPress={() =>
               router.push({
                 pathname: '/(app)/learning/problems/solve',
                 params: {
-                  level: todayLearning!.level,
-                  language: todayLearning!.language,
-                  cefrLevel: todayLearning!.cefrLevel ?? '',
-                  qurveLevel: todayLearning!.qurveLevel ?? '',
-                  category: todayLearning!.categoryCode,
-                  subType: todayLearning!.subTypeCode,
-                  count: String(todayLearning!.totalQuestionCount),
-                  offset: String(todayLearning!.offset),
-                  categoryLabel: todayLearning!.category,
-                  subTypeLabel: todayLearning!.title,
+                  level: effectiveTodayLearning!.level,
+                  language: effectiveTodayLearning!.language,
+                  cefrLevel: effectiveTodayLearning!.cefrLevel ?? '',
+                  qurveLevel: effectiveTodayLearning!.qurveLevel ?? '',
+                  category: effectiveTodayLearning!.categoryCode,
+                  subType: effectiveTodayLearning!.subTypeCode,
+                  count: String(effectiveTodayLearning!.totalQuestionCount),
+                  offset: String(effectiveTodayLearning!.offset),
+                  categoryLabel: effectiveTodayLearning!.category,
+                  subTypeLabel: effectiveTodayLearning!.title,
+                  learningGoal: profile!.learningGoal ?? '',
                 },
               })
             }
