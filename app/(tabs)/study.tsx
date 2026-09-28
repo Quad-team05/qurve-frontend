@@ -472,6 +472,16 @@ export default function StudyPage() {
         <Text className="mb-1.5 font-regular text-xs text-text-brown">
           학습하기 카드를 눌러 학습 목표와 단계를 변경할 수 있어요.
         </Text>
+        <Pressable
+          className="mb-1 flex-row items-center justify-between rounded-sm border border-border bg-white px-4 py-3"
+          onPress={() => router.push('/(app)/mypage/language')}
+        >
+          <View className="flex-row items-center gap-x-2">
+            <Text style={{ fontSize: 16 }}>🌐</Text>
+            <Text className="font-regular text-xs text-text-brown">학습 언어 전환</Text>
+          </View>
+          <Text className="font-regular text-sm text-text-brown">›</Text>
+        </Pressable>
 
         <View className="flex-row gap-x-2.5">
           <View className="relative flex-1 items-center pt-[8px]">
