@@ -1,7 +1,6 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { ApiError } from '@/lib/api/client';
-import { getBookmarkedProblems, removeProblemBookmark, type Problem } from '@/lib/api/problem';
 import { getWrongNotes, type WrongNoteSummary } from '@/lib/api/wrongnote';
 import { clearAuthSession } from '@/lib/auth/session';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -98,21 +97,14 @@ function formatDate(value: string | null) {
   return value ? value.replaceAll('-', '.') : '-';
 }
 
-type TabType = 'WRONG_NOTE' | 'BOOKMARK';
-
 export default function WrongNoteListPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabType>('WRONG_NOTE');
-
   const [currentMonth, setCurrentMonth] = useState(() => toYearMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [wrongNoteDates, setWrongNoteDates] = useState<string[]>([]);
   const [wrongNotes, setWrongNotes] = useState<WrongNoteSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
-
-  const [bookmarkedProblems, setBookmarkedProblems] = useState<Problem[]>([]);
-  const [isBookmarkLoading, setIsBookmarkLoading] = useState(true);
 
   const loadWrongNotes = useCallback(async () => {
     try {
@@ -138,43 +130,11 @@ export default function WrongNoteListPage() {
     }
   }, [currentMonth, router]);
 
-  const loadBookmarkedProblems = useCallback(async () => {
-    try {
-      setIsBookmarkLoading(true);
-      const result = await getBookmarkedProblems();
-      setBookmarkedProblems(result);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        await clearAuthSession();
-        router.replace('/(app)/auth/login');
-        return;
-      }
-      console.error('북마크 문제를 불러오지 못했습니다.', error);
-    } finally {
-      setIsBookmarkLoading(false);
-    }
-  }, [router]);
-
   useFocusEffect(
     useCallback(() => {
       void loadWrongNotes();
     }, [loadWrongNotes]),
   );
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadBookmarkedProblems();
-    }, [loadBookmarkedProblems]),
-  );
-
-  const handleRemoveBookmark = async (problemId: number) => {
-    try {
-      await removeProblemBookmark(problemId);
-      setBookmarkedProblems((prev) => prev.filter((p) => p.problemId !== problemId));
-    } catch (error) {
-      console.error('북마크 해제에 실패했습니다.', error);
-    }
-  };
 
   const markedDates = useMemo(() => {
     const marks: Record<string, any> = {};
@@ -232,178 +192,116 @@ export default function WrongNoteListPage() {
     <SafeAreaView className="flex-1 bg-bg">
       <TopBar title="오답노트" />
 
-      {/* 탭 */}
-      <View className="flex-row gap-x-2 px-4 pt-3">
-        <Pressable
-          className={`flex-1 items-center rounded-sm border py-2.5 ${
-            activeTab === 'WRONG_NOTE' ? 'border-btn-dark bg-btn-dark' : 'border-border bg-white'
-          }`}
-          onPress={() => setActiveTab('WRONG_NOTE')}
-        >
-          <Text
-            className="text-sm font-semibold"
-            style={{ color: activeTab === 'WRONG_NOTE' ? '#fff' : '#A09080' }}
-          >
-            오답노트
-          </Text>
-        </Pressable>
-        <Pressable
-          className={`flex-1 items-center rounded-sm border py-2.5 ${
-            activeTab === 'BOOKMARK' ? 'border-btn-dark bg-btn-dark' : 'border-border bg-white'
-          }`}
-          onPress={() => setActiveTab('BOOKMARK')}
-        >
-          <Text
-            className="text-sm font-semibold"
-            style={{ color: activeTab === 'BOOKMARK' ? '#fff' : '#A09080' }}
-          >
-            북마크 문제
-          </Text>
-        </Pressable>
-      </View>
-
       <ScrollView
         className="flex-1"
         contentContainerClassName="px-4 py-6"
         showsVerticalScrollIndicator={false}
       >
-        {activeTab === 'WRONG_NOTE' ? (
-          <>
-            <View className="mb-3 flex-row items-center justify-between px-1">
-              <Pressable hitSlop={12} onPress={() => moveMonth(-1)}>
-                <Text className="text-sm font-semibold text-text-brown">←</Text>
+        <>
+          <View className="mb-3 flex-row items-center justify-between px-1">
+            <Pressable hitSlop={12} onPress={() => moveMonth(-1)}>
+              <Text className="text-sm font-semibold text-text-brown">←</Text>
+            </Pressable>
+            <Text className="text-sm font-semibold text-text-brown">
+              {currentMonth.replace('-', '.')}
+            </Text>
+            <Pressable hitSlop={12} onPress={() => moveMonth(1)}>
+              <Text className="text-sm font-semibold text-text-brown">→</Text>
+            </Pressable>
+          </View>
+
+          <View
+            className="rounded-sm border border-border bg-white px-2 pb-2 pt-3"
+            style={cardShadowStyle}
+          >
+            <Calendar
+              key={currentMonth}
+              current={`${currentMonth}-01`}
+              firstDay={1}
+              markingType="custom"
+              hideArrows
+              hideExtraDays={false}
+              renderHeader={() => null}
+              enableSwipeMonths={false}
+              markedDates={markedDates}
+              onDayPress={handleDayPress}
+              theme={calendarTheme}
+              style={{ borderRadius: 2, paddingBottom: 2 }}
+            />
+          </View>
+
+          <View className="flex-row items-center justify-between py-3">
+            <Text className="text-xs text-text-brown">
+              {selectedDate ? `${formatDate(selectedDate)} 오답` : '오답노트 목록'}
+            </Text>
+            {selectedDate ? (
+              <Pressable onPress={() => setSelectedDate(null)}>
+                <Text className="text-xs font-semibold text-text-brown">전체 보기</Text>
               </Pressable>
-              <Text className="text-sm font-semibold text-text-brown">
-                {currentMonth.replace('-', '.')}
-              </Text>
-              <Pressable hitSlop={12} onPress={() => moveMonth(1)}>
-                <Text className="text-sm font-semibold text-text-brown">→</Text>
+            ) : null}
+          </View>
+
+          {isLoading ? (
+            <View className="rounded-sm border border-border bg-white p-4">
+              <Text className="text-sm text-text-brown">오답노트를 불러오는 중...</Text>
+            </View>
+          ) : null}
+          {!isLoading && errorMessage ? (
+            <View className="rounded-sm border border-border bg-white p-4">
+              <Text className="text-sm text-[#DC2626]">{errorMessage}</Text>
+              <Pressable
+                className="mt-3 self-start rounded-sm bg-btn-dark px-4 py-2"
+                onPress={() => void loadWrongNotes()}
+              >
+                <Text className="text-xs font-semibold text-white">다시 시도</Text>
               </Pressable>
             </View>
-
-            <View
-              className="rounded-sm border border-border bg-white px-2 pb-2 pt-3"
-              style={cardShadowStyle}
-            >
-              <Calendar
-                key={currentMonth}
-                current={`${currentMonth}-01`}
-                firstDay={1}
-                markingType="custom"
-                hideArrows
-                hideExtraDays={false}
-                renderHeader={() => null}
-                enableSwipeMonths={false}
-                markedDates={markedDates}
-                onDayPress={handleDayPress}
-                theme={calendarTheme}
-                style={{ borderRadius: 2, paddingBottom: 2 }}
-              />
-            </View>
-
-            <View className="flex-row items-center justify-between py-3">
-              <Text className="text-xs text-text-brown">
-                {selectedDate ? `${formatDate(selectedDate)} 오답` : '오답노트 목록'}
+          ) : null}
+          {!isLoading && !errorMessage && visibleWrongNotes.length === 0 ? (
+            <View className="rounded-sm border border-border bg-white p-4">
+              <Text className="text-sm text-text-brown">
+                {selectedDate
+                  ? '선택한 날짜에 저장된 오답이 없어요.'
+                  : '이번 달에 저장된 오답이 없어요.'}
               </Text>
-              {selectedDate ? (
-                <Pressable onPress={() => setSelectedDate(null)}>
-                  <Text className="text-xs font-semibold text-text-brown">전체 보기</Text>
-                </Pressable>
-              ) : null}
             </View>
+          ) : null}
 
-            {isLoading ? (
-              <View className="rounded-sm border border-border bg-white p-4">
-                <Text className="text-sm text-text-brown">오답노트를 불러오는 중...</Text>
-              </View>
-            ) : null}
-            {!isLoading && errorMessage ? (
-              <View className="rounded-sm border border-border bg-white p-4">
-                <Text className="text-sm text-[#DC2626]">{errorMessage}</Text>
-                <Pressable
-                  className="mt-3 self-start rounded-sm bg-btn-dark px-4 py-2"
-                  onPress={() => void loadWrongNotes()}
-                >
-                  <Text className="text-xs font-semibold text-white">다시 시도</Text>
-                </Pressable>
-              </View>
-            ) : null}
-            {!isLoading && !errorMessage && visibleWrongNotes.length === 0 ? (
-              <View className="rounded-sm border border-border bg-white p-4">
-                <Text className="text-sm text-text-brown">
-                  {selectedDate
-                    ? '선택한 날짜에 저장된 오답이 없어요.'
-                    : '이번 달에 저장된 오답이 없어요.'}
-                </Text>
-              </View>
-            ) : null}
-
-            {!isLoading &&
-              !errorMessage &&
-              visibleWrongNotes.map((item) => (
-                <Pressable
-                  key={`${item.problemId}-${item.wrongSubmissionId}`}
-                  className="mb-4 rounded-sm border border-border bg-white px-4 py-4"
-                  style={cardShadowStyle}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/(app)/learning/wrong-note/detail',
-                      params: {
-                        problemId: String(item.problemId),
-                        wrongSubmissionId: String(item.wrongSubmissionId),
-                      },
-                    })
-                  }
-                >
-                  <View className="flex-row items-start justify-between gap-3">
-                    <Text className="flex-1 font-bold text-lg text-black">{item.title}</Text>
-                    {item.reviewed ? (
-                      <Text className="text-xs font-semibold text-[#059669]">복습 완료</Text>
-                    ) : null}
-                  </View>
-                  <Text className="mt-2 text-sm font-semibold text-text-brown">
-                    학습일: {formatDate(item.wrongAnsweredDate)}
-                  </Text>
-                  <Text className="mt-[1px] text-sm font-semibold text-text-brown">
-                    복습일: {formatDate(item.reviewedDate)}
-                  </Text>
-                  <Text className="mt-5 self-end text-sm font-semibold text-text-gray">
-                    문제보기 →
-                  </Text>
-                </Pressable>
-              ))}
-          </>
-        ) : (
-          <>
-            {isBookmarkLoading ? (
-              <View className="rounded-sm border border-border bg-white p-4">
-                <Text className="text-sm text-text-brown">북마크 문제를 불러오는 중...</Text>
-              </View>
-            ) : bookmarkedProblems.length === 0 ? (
-              <View className="rounded-sm border border-border bg-white p-4">
-                <Text className="text-sm text-text-brown">북마크한 문제가 없어요.</Text>
-              </View>
-            ) : (
-              bookmarkedProblems.map((problem) => (
-                <View
-                  key={problem.problemId}
-                  className="mb-4 rounded-sm border border-border bg-white px-4 py-4"
-                  style={cardShadowStyle}
-                >
-                  <View className="mb-2 flex-row items-center justify-between">
-                    <Text className="text-xs font-semibold text-text-brown">
-                      {problem.level} · {problem.category}
-                    </Text>
-                    <Pressable onPress={() => handleRemoveBookmark(problem.problemId)} hitSlop={8}>
-                      <Text style={{ fontSize: 16, color: '#D97706' }}>🔖</Text>
-                    </Pressable>
-                  </View>
-                  <Text className="text-sm font-semibold text-black">{problem.questionText}</Text>
+          {!isLoading &&
+            !errorMessage &&
+            visibleWrongNotes.map((item) => (
+              <Pressable
+                key={`${item.problemId}-${item.wrongSubmissionId}`}
+                className="mb-4 rounded-sm border border-border bg-white px-4 py-4"
+                style={cardShadowStyle}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(app)/learning/wrong-note/detail',
+                    params: {
+                      problemId: String(item.problemId),
+                      wrongSubmissionId: String(item.wrongSubmissionId),
+                    },
+                  })
+                }
+              >
+                <View className="flex-row items-start justify-between gap-3">
+                  <Text className="flex-1 font-bold text-lg text-black">{item.title}</Text>
+                  {item.reviewed ? (
+                    <Text className="text-xs font-semibold text-[#059669]">복습 완료</Text>
+                  ) : null}
                 </View>
-              ))
-            )}
-          </>
-        )}
+                <Text className="mt-2 text-sm font-semibold text-text-brown">
+                  학습일: {formatDate(item.wrongAnsweredDate)}
+                </Text>
+                <Text className="mt-[1px] text-sm font-semibold text-text-brown">
+                  복습일: {formatDate(item.reviewedDate)}
+                </Text>
+                <Text className="mt-5 self-end text-sm font-semibold text-text-gray">
+                  문제보기 →
+                </Text>
+              </Pressable>
+            ))}
+        </>
       </ScrollView>
     </SafeAreaView>
   );

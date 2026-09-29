@@ -27,10 +27,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Goal = 'JLPT' | '실생활 일본어' | '토익' | '실생활 영어';
 type JlptLevel = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
+type ToeicStage = Extract<LearningStage, `TOEIC_${string}`>;
+type ToeicLevel = '500+' | '600+' | '700+' | '800+' | '900+';
 type LifeLevel = `Level ${number}`;
-type Level = JlptLevel | LifeLevel;
+type Level = JlptLevel | ToeicLevel | LifeLevel;
 
-function getToeicStage(currentLevel: number | null | undefined): LearningStage {
+function getCefrLevel(currentLevel: number | null | undefined) {
+  const level = currentLevel ?? 1;
+
+  if (level <= 2) return 'A1';
+  if (level <= 4) return 'A2';
+  if (level <= 6) return 'B1';
+  if (level <= 8) return 'B2';
+  if (level === 9) return 'C1';
+  return 'C2';
+}
+
+function getToeicStage(currentLevel: number | null | undefined): ToeicStage {
   const level = currentLevel ?? 1;
 
   if (level >= 9) return 'TOEIC_900_PLUS';
@@ -38,6 +51,10 @@ function getToeicStage(currentLevel: number | null | undefined): LearningStage {
   if (level >= 5) return 'TOEIC_700_PLUS';
   if (level >= 3) return 'TOEIC_600_PLUS';
   return 'TOEIC_500_PLUS';
+}
+
+function getToeicStageLabel(stage: ToeicStage): ToeicLevel {
+  return stage.replace('TOEIC_', '').replace('_PLUS', '+') as ToeicLevel;
 }
 
 function showToast(message: string) {
@@ -97,33 +114,50 @@ function Radio({ selected }: { selected: boolean }) {
 
 function GoalModal({
   visible,
+  learningLanguage,
   currentGoal,
   currentJlptLevel,
+  currentToeicStage,
   onClose,
   onConfirm,
 }: {
   visible: boolean;
+  learningLanguage: LearningLanguage;
   currentGoal: Goal;
   currentJlptLevel: JlptLevel;
+  currentToeicStage: ToeicStage;
   onClose: () => void;
-  onConfirm: (goal: Goal, jlptLevel: JlptLevel) => Promise<void>;
+  onConfirm: (goal: Goal, jlptLevel: JlptLevel, toeicStage: ToeicStage) => Promise<void>;
 }) {
   const [selectedGoal, setSelectedGoal] = useState<Goal>(currentGoal);
   const [selectedJlptLevel, setSelectedJlptLevel] = useState<JlptLevel>(currentJlptLevel);
+  const [selectedToeicStage, setSelectedToeicStage] = useState<ToeicStage>(currentToeicStage);
 
-  const goals: Goal[] = ['JLPT', '실생활 일본어', '토익', '실생활 영어'];
+  const goals: Goal[] =
+    learningLanguage === 'ENGLISH' ? ['토익', '실생활 영어'] : ['JLPT', '실생활 일본어'];
   const jlptLevels: JlptLevel[] = ['N1', 'N2', 'N3', 'N4', 'N5'];
+  const toeicStages: ToeicStage[] = [
+    'TOEIC_500_PLUS',
+    'TOEIC_600_PLUS',
+    'TOEIC_700_PLUS',
+    'TOEIC_800_PLUS',
+    'TOEIC_900_PLUS',
+  ];
 
   useEffect(() => {
     if (!visible) return;
     setSelectedGoal(currentGoal);
     setSelectedJlptLevel(currentJlptLevel);
-  }, [visible, currentGoal, currentJlptLevel]);
+    setSelectedToeicStage(currentToeicStage);
+  }, [visible, currentGoal, currentJlptLevel, currentToeicStage]);
 
   const handleGoalChange = (goal: Goal) => {
     setSelectedGoal(goal);
     if (goal === 'JLPT') {
       setSelectedJlptLevel(currentJlptLevel);
+    }
+    if (goal === '토익') {
+      setSelectedToeicStage(currentToeicStage);
     }
   };
 
@@ -165,9 +199,29 @@ function GoalModal({
               </>
             )}
 
+            {selectedGoal === '토익' && (
+              <>
+                <Text className="mb-2 mt-5 font-regular text-xs text-text-brown">
+                  TOEIC 목표 점수 선택
+                </Text>
+                {toeicStages.map((stage) => (
+                  <Pressable
+                    key={stage}
+                    className="flex-row items-center justify-between border-b border-bg-strong py-3"
+                    onPress={() => setSelectedToeicStage(stage)}
+                  >
+                    <Text className="font-regular text-base text-btn-dark">
+                      {getToeicStageLabel(stage)}
+                    </Text>
+                    <Radio selected={selectedToeicStage === stage} />
+                  </Pressable>
+                ))}
+              </>
+            )}
+
             <Pressable
               className="mt-5 items-center rounded-sm bg-btn-dark py-3"
-              onPress={() => void onConfirm(selectedGoal, selectedJlptLevel)}
+              onPress={() => void onConfirm(selectedGoal, selectedJlptLevel, selectedToeicStage)}
             >
               <Text className="font-semoBold text-base text-white">확인</Text>
             </Pressable>
@@ -182,6 +236,7 @@ export default function StudyPage() {
   const router = useRouter();
   const [goal, setGoal] = useState<Goal>('JLPT');
   const [jlptLevel, setJlptLevel] = useState<JlptLevel>('N3');
+  const [toeicStage, setToeicStage] = useState<ToeicStage>('TOEIC_500_PLUS');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [todayLearning, setTodayLearning] = useState<TodayLearning | null>(null);
@@ -223,6 +278,11 @@ export default function StudyPage() {
           });
           const stageLabel = result.learningStage?.match(/(N[1-5]|[5-9]00_PLUS)$/)?.[1];
           if (stageLabel?.startsWith('N')) setJlptLevel(stageLabel as JlptLevel);
+          if (result.learningStage?.startsWith('TOEIC_')) {
+            setToeicStage(result.learningStage as ToeicStage);
+          } else if (result.learningLanguage === 'ENGLISH') {
+            setToeicStage(getToeicStage(result.currentLevel));
+          }
           hasInitializedGoal.current = true;
         } catch (error) {
           if (error instanceof ApiError && error.status === 401) {
@@ -347,12 +407,6 @@ export default function StudyPage() {
       let mounted = true;
 
       const loadBookmarkedWords = async () => {
-        if (profile?.learningLanguage === 'ENGLISH') {
-          setBookmarkedWordCount(0);
-          setIsBookmarkedWordLoading(false);
-          return;
-        }
-
         try {
           setIsBookmarkedWordLoading(true);
           const words = await getBookmarkedWords();
@@ -382,10 +436,14 @@ export default function StudyPage() {
       return () => {
         mounted = false;
       };
-    }, [languageRevision, profile?.learningLanguage, router]),
+    }, [languageRevision, router]),
   );
 
-  const handleConfirm = async (newGoal: Goal, newJlptLevel: JlptLevel) => {
+  const handleConfirm = async (
+    newGoal: Goal,
+    newJlptLevel: JlptLevel,
+    newToeicStage: ToeicStage,
+  ) => {
     if (isGoalUpdating) return;
 
     const nextLanguage: LearningLanguage =
@@ -397,7 +455,7 @@ export default function StudyPage() {
       newGoal === 'JLPT'
         ? (`JLPT_${newJlptLevel}` as LearningStage)
         : newGoal === '토익'
-          ? getToeicStage(profile?.currentLevel)
+          ? newToeicStage
           : null;
 
     try {
@@ -409,6 +467,7 @@ export default function StudyPage() {
 
       setGoal(newGoal);
       if (newGoal === 'JLPT') setJlptLevel(newJlptLevel);
+      if (newGoal === '토익') setToeicStage(newToeicStage);
       setProfile((previous) =>
         previous
           ? {
@@ -443,7 +502,11 @@ export default function StudyPage() {
   const isEnglish = goal === '토익' || goal === '실생활 영어';
   const isLife = goal === '실생활 일본어' || goal === '실생활 영어';
   const lifeLevel: LifeLevel = `Level ${profile?.currentLevel ?? 1}`;
-  const displayLevel: Level = isEnglish || isLife ? lifeLevel : jlptLevel;
+  const displayLevel: Level = isLife
+    ? lifeLevel
+    : goal === '토익'
+      ? getToeicStageLabel(toeicStage)
+      : jlptLevel;
   const nonWordChallenges = mainChallenges.filter(
     (challenge) => challenge.goalType !== 'WORD_COUNT',
   );
@@ -457,6 +520,7 @@ export default function StudyPage() {
     : '';
   const wordChallenge = mainChallenges.find((challenge) => challenge.goalType === 'WORD_COUNT');
   const isWordChallengeAchieved = wordChallenge ? isChallengeAchieved(wordChallenge) : false;
+  const vocabularyLevel = isEnglish ? getCefrLevel(profile?.currentLevel) : jlptLevel;
   const bookmarkedWordProgressWidth =
     `${Math.min(100, Math.round(((bookmarkedWordCount ?? 0) / 30) * 100))}%` as `${number}%`;
 
@@ -559,7 +623,7 @@ export default function StudyPage() {
           </View>
         ) : null}
 
-        {!isEnglish && wordChallenge && !isChallengeLoading && !challengeErrorMessage ? (
+        {wordChallenge && !isChallengeLoading && !challengeErrorMessage ? (
           <View className="relative items-center pt-[8px]">
             <View className="absolute top-0 z-10 h-[10px] w-[50px] rounded-[1px] bg-[#C7E8FF]" />
             <Pressable
@@ -640,43 +704,41 @@ export default function StudyPage() {
             <Text className="mt-0.5 font-regular text-xs text-[#A67ABD]">저장된 오답</Text>
           </Pressable>
 
-          {!isEnglish ? (
-            <Pressable
-              className="flex-1 rounded-sm bg-[#FFF9E9] p-3"
-              onPress={() => moveTo('/(app)/learning/vocab/list')}
-            >
-              <Text className="mb-1 font-regular text-xs text-[#B9932D]">단어장</Text>
-              <Text className="font-bold text-3xl text-[#967411]">{jlptLevel}</Text>
-              <Text className="mt-0.5 font-regular text-xs text-[#C4A657]">UNIT 1 학습중</Text>
-            </Pressable>
-          ) : null}
+          <Pressable
+            className="flex-1 rounded-sm bg-[#FFF9E9] p-3"
+            onPress={() => moveTo('/(app)/learning/vocab/list')}
+          >
+            <Text className="mb-1 font-regular text-xs text-[#B9932D]">단어장</Text>
+            <Text className="font-bold text-3xl text-[#967411]">{vocabularyLevel}</Text>
+            <Text className="mt-0.5 font-regular text-xs text-[#C4A657]">단어 학습하기</Text>
+          </Pressable>
         </View>
 
-        {!isEnglish ? (
-          <View className="relative items-center pt-[8px]">
-            <Pressable
-              className="w-full rounded-sm bg-[#EEF8F4] p-4"
-              onPress={() => moveTo('/(app)/learning/vocab/bookmarked')}
-            >
-              <Text className="mb-1 font-regular text-xs text-[#3A8F6A]">나의 단어장</Text>
-              <Text className="font-bold text-3xl text-btn-dark">
-                {isBookmarkedWordLoading ? '-' : `북마크 ${bookmarkedWordCount ?? 0}개`}
-              </Text>
-              <View className="mt-2 h-1 rounded-full bg-[#BFDCCD]">
-                <View
-                  className="h-1 rounded-full bg-[#059669]"
-                  style={{ width: bookmarkedWordProgressWidth }}
-                />
-              </View>
-            </Pressable>
-          </View>
-        ) : null}
+        <View className="relative items-center pt-[8px]">
+          <Pressable
+            className="w-full rounded-sm bg-[#EEF8F4] p-4"
+            onPress={() => moveTo('/(app)/learning/vocab/bookmarked')}
+          >
+            <Text className="mb-1 font-regular text-xs text-[#3A8F6A]">나의 단어장</Text>
+            <Text className="font-bold text-3xl text-btn-dark">
+              {isBookmarkedWordLoading ? '-' : `북마크 ${bookmarkedWordCount ?? 0}개`}
+            </Text>
+            <View className="mt-2 h-1 rounded-full bg-[#BFDCCD]">
+              <View
+                className="h-1 rounded-full bg-[#059669]"
+                style={{ width: bookmarkedWordProgressWidth }}
+              />
+            </View>
+          </Pressable>
+        </View>
       </ScrollView>
 
       <GoalModal
         visible={modalVisible}
+        learningLanguage={profile?.learningLanguage ?? (isEnglish ? 'ENGLISH' : 'JAPANESE')}
         currentGoal={goal}
         currentJlptLevel={jlptLevel}
+        currentToeicStage={toeicStage}
         onClose={() => setModalVisible(false)}
         onConfirm={handleConfirm}
       />

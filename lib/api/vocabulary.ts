@@ -1,11 +1,15 @@
-import { apiFetch } from '@/lib/api/client';
+import { apiFetch, buildApiUrl } from '@/lib/api/client';
+import { getAccessToken } from '@/lib/auth/session';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export type JlptLevel = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
+export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+export type VocabularyLevel = JlptLevel | CefrLevel;
 
 export type VocabUnitStatus = 'BEFORE' | 'IN_PROGRESS' | 'COMPLETED';
 
 export type VocabUnit = {
-  level: JlptLevel;
+  level: VocabularyLevel;
   unitNumber: number;
   unitName: string;
   status: VocabUnitStatus;
@@ -16,7 +20,7 @@ export type VocabWord = {
   wordId: number;
   orderNumber: number;
   expression: string;
-  reading: string;
+  reading?: string | null;
   meaning: string;
   meaningKo?: string;
   koreanMeaning?: string;
@@ -25,7 +29,7 @@ export type VocabWord = {
 };
 
 export type VocabWordsData = {
-  level: JlptLevel;
+  level: VocabularyLevel;
   unitNumber: number;
   totalCount: number;
   words: VocabWord[];
@@ -43,7 +47,7 @@ export type ChallengeWordCompleteResult = {
   newlyLearnedWordCount: number;
 };
 
-export async function getVocabUnits(level: JlptLevel) {
+export async function getVocabUnits(level: VocabularyLevel) {
   const response = await apiFetch<ApiResponse<VocabUnit[]>>(
     `/vocabularies/units?level=${encodeURIComponent(level)}`,
   );
@@ -51,7 +55,7 @@ export async function getVocabUnits(level: JlptLevel) {
   return response.data;
 }
 
-export async function getVocabWords(level: JlptLevel, unitNumber: number) {
+export async function getVocabWords(level: VocabularyLevel, unitNumber: number) {
   const response = await apiFetch<ApiResponse<VocabWordsData>>(
     `/vocabularies/units/${unitNumber}/words?level=${encodeURIComponent(level)}`,
   );
@@ -71,14 +75,14 @@ export async function removeVocabBookmark(wordId: number) {
   });
 }
 
-export async function startVocabUnit(level: JlptLevel, unitNumber: number) {
+export async function startVocabUnit(level: VocabularyLevel, unitNumber: number) {
   await apiFetch<ApiResponse<null>>(
     `/vocabularies/units/${unitNumber}/start?level=${encodeURIComponent(level)}`,
     { method: 'PATCH' },
   );
 }
 
-export async function completeVocabUnit(level: JlptLevel, unitNumber: number) {
+export async function completeVocabUnit(level: VocabularyLevel, unitNumber: number) {
   await apiFetch<ApiResponse<null>>(
     `/vocabularies/units/${unitNumber}/complete?level=${encodeURIComponent(level)}`,
     { method: 'PATCH' },
@@ -108,4 +112,37 @@ export async function getBookmarkedWords() {
     method: 'GET',
   });
   return response.data;
+}
+
+export async function getVocabAudioSource(wordId: number) {
+  const accessToken = await getAccessToken();
+
+  if (!accessToken) {
+    throw new Error('AUTH_AUDIO_ERROR');
+  }
+
+  const fileUri = `${FileSystem.cacheDirectory}vocabulary-${wordId}.mp3`;
+  await FileSystem.deleteAsync(fileUri, { idempotent: true });
+
+  const result = await FileSystem.downloadAsync(
+    buildApiUrl(`/vocabularies/${wordId}/audio`),
+    fileUri,
+    {
+      headers: {
+        Authorization: accessToken.startsWith('Bearer ') ? accessToken : `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (result.status === 401 || result.status === 403) {
+    throw new Error('AUTH_AUDIO_ERROR');
+  }
+
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`AUDIO_STATUS_${result.status}`);
+  }
+
+  return {
+    uri: result.uri,
+  };
 }

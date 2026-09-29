@@ -52,7 +52,9 @@ export default function BookmarkedVocabPage() {
         <Text className="mr-3 font-regular text-xs text-text-brown">{w.orderNumber}</Text>
         <View className="flex-1">
           <Text className="font-regular text-xl text-btn-dark">{w.expression}</Text>
-          <Text className="font-regular text-xs text-text-brown">({w.reading})</Text>
+          {w.reading ? (
+            <Text className="font-regular text-xs text-text-brown">({w.reading})</Text>
+          ) : null}
         </View>
         <Text className="font-semiBold mr-3 text-sm text-text-brown">
           {revealed[w.wordId] ? getMeaning(w) : '···'}

@@ -7,14 +7,35 @@ import {
   type ChallengeMain,
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
+import { getMyProfile, type LearningLanguage } from '@/lib/api/user';
 import { getVocabUnits } from '@/lib/api/vocabulary';
-import type { JlptLevel, VocabUnit, VocabUnitStatus } from '@/lib/api/vocabulary';
+import type { VocabularyLevel, VocabUnit, VocabUnitStatus } from '@/lib/api/vocabulary';
+import { clearAuthSession } from '@/lib/auth/session';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const levels: JlptLevel[] = ['N1', 'N2', 'N3', 'N4', 'N5'];
+const japaneseLevels: VocabularyLevel[] = ['N1', 'N2', 'N3', 'N4', 'N5'];
+const englishLevels: VocabularyLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+function mapCurrentLevelToVocabularyLevel(
+  language: LearningLanguage,
+  currentLevel: number | null,
+): VocabularyLevel {
+  if (language === 'JAPANESE') {
+    return currentLevel && currentLevel >= 1 && currentLevel <= 5
+      ? (`N${currentLevel}` as VocabularyLevel)
+      : 'N5';
+  }
+
+  if (!currentLevel || currentLevel <= 2) return 'A1';
+  if (currentLevel <= 4) return 'A2';
+  if (currentLevel <= 6) return 'B1';
+  if (currentLevel <= 8) return 'B2';
+  if (currentLevel === 9) return 'C1';
+  return 'C2';
+}
 
 const statusStyleMap: Record<VocabUnitStatus, { color: string; progress: number }> = {
   BEFORE: { color: '#C8C0B0', progress: 0 },
@@ -60,7 +81,7 @@ function getErrorMessage(error: unknown) {
   }
 
   if (error.code === 'INVALID_LEVEL') {
-    return '지원하지 않는 JLPT 레벨입니다.';
+    return '현재 학습 언어에서 지원하지 않는 단어 레벨입니다.';
   }
 
   if (error.code === 'USER_NOT_FOUND') {
@@ -72,7 +93,8 @@ function getErrorMessage(error: unknown) {
 
 export default function VocabListPage() {
   const router = useRouter();
-  const [selectedLevel, setSelectedLevel] = useState<JlptLevel>('N5');
+  const [learningLanguage, setLearningLanguage] = useState<LearningLanguage | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<VocabularyLevel | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [units, setUnits] = useState<VocabUnit[]>([]);
   const [wordChallenge, setWordChallenge] = useState<ChallengeMain | null>(null);
@@ -80,6 +102,8 @@ export default function VocabListPage() {
   const [errorMessage, setErrorMessage] = useState('');
 
   const fetchUnits = useCallback(async () => {
+    if (!selectedLevel) return;
+
     try {
       setIsLoading(true);
       setErrorMessage('');
@@ -87,12 +111,54 @@ export default function VocabListPage() {
 
       setUnits(nextUnits);
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
       setUnits([]);
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
-  }, [selectedLevel]);
+  }, [router, selectedLevel]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+
+      const loadProfile = async () => {
+        try {
+          setIsLoading(true);
+          setErrorMessage('');
+          const profile = await getMyProfile();
+
+          if (!mounted) return;
+
+          const language = profile.learningLanguage ?? 'JAPANESE';
+          setLearningLanguage(language);
+          setSelectedLevel(mapCurrentLevelToVocabularyLevel(language, profile.currentLevel));
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            await clearAuthSession();
+            router.replace('/(app)/auth/login');
+            return;
+          }
+
+          if (mounted) setErrorMessage('학습 언어 정보를 불러오지 못했습니다.');
+        } finally {
+          if (mounted) setIsLoading(false);
+        }
+      };
+
+      void loadProfile();
+
+      return () => {
+        mounted = false;
+      };
+    }, [router]),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -150,6 +216,8 @@ export default function VocabListPage() {
     });
   };
 
+  const levels = learningLanguage === 'ENGLISH' ? englishLevels : japaneseLevels;
+
   return (
     <SafeAreaView className="flex-1 bg-bg">
       <TopBar title="단어장" />
@@ -164,7 +232,9 @@ export default function VocabListPage() {
           className="flex-row items-center justify-between rounded-sm border border-border bg-white px-4 py-3"
           onPress={() => setModalVisible(true)}
         >
-          <Text className="font-semiBold text-base text-btn-dark">{selectedLevel}</Text>
+          <Text className="font-semiBold text-base text-btn-dark">
+            {selectedLevel ?? '불러오는 중...'}
+          </Text>
           <Text className="font-regular text-sm text-text-brown">∨</Text>
         </Pressable>
 

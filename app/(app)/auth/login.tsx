@@ -1,11 +1,8 @@
-import GoogleIcon from '@/assets/icons/google.svg';
-import KakaoIcon from '@/assets/icons/kakao.svg';
-import NaverIcon from '@/assets/icons/naver.svg';
 import Text from '@/components/ui/AppText';
 import TextInput from '@/components/ui/AppTextInput';
 import { ApiError, API_BASE_URL } from '@/lib/api/client';
 import { login } from '@/lib/api/auth';
-import { loginWithGoogle, loginWithKakao, loginWithNaver } from '@/lib/auth/social-login';
+import { getMyProfile } from '@/lib/api/user';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Platform, Pressable, ToastAndroid, View } from 'react-native';
@@ -26,9 +23,6 @@ export default function LoginPage() {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isKakaoSubmitting, setIsKakaoSubmitting] = useState(false);
-  const [isNaverSubmitting, setIsNaverSubmitting] = useState(false);
-  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
   const hasEmptyField = !loginId.trim() || !password.trim();
   const isLoginDisabled = isSubmitting || hasEmptyField;
@@ -58,6 +52,14 @@ export default function LoginPage() {
         loginId: trimmedLoginId,
         password: trimmedPassword,
       });
+
+      const profile = await getMyProfile();
+
+      if (profile.learningLanguage === 'ENGLISH' && profile.currentLevel == null) {
+        router.replace('/(app)/level/test-survey');
+        return;
+      }
+
       router.replace('/(tabs)');
     } catch (error) {
       if (
@@ -73,66 +75,6 @@ export default function LoginPage() {
       showToast(error instanceof ApiError ? error.message : '로그인 중 문제가 발생했습니다.');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleKakaoLogin = async () => {
-    if (isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting) return;
-
-    try {
-      setIsKakaoSubmitting(true);
-      const result = await loginWithKakao();
-
-      if (result.success) {
-        router.replace('/(tabs)');
-        return;
-      }
-
-      if (!result.cancelled) {
-        showToast(result.message);
-      }
-    } finally {
-      setIsKakaoSubmitting(false);
-    }
-  };
-
-  const handleNaverLogin = async () => {
-    if (isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting) return;
-
-    try {
-      setIsNaverSubmitting(true);
-      const result = await loginWithNaver();
-
-      if (result.success) {
-        router.replace('/(tabs)');
-        return;
-      }
-
-      if (!result.cancelled) {
-        showToast(result.message);
-      }
-    } finally {
-      setIsNaverSubmitting(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    if (isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting) return;
-
-    try {
-      setIsGoogleSubmitting(true);
-      const result = await loginWithGoogle();
-
-      if (result.success) {
-        router.replace('/(tabs)');
-        return;
-      }
-
-      if (!result.cancelled) {
-        showToast(result.message);
-      }
-    } finally {
-      setIsGoogleSubmitting(false);
     }
   };
 
@@ -189,38 +131,7 @@ export default function LoginPage() {
           <Text className="font-bold text-sm text-[#A09080]">회원가입</Text>
         </Pressable>
       </View>
-      <View className="mt-9 flex-row items-center">
-        <View className="h-px flex-1 bg-border" />
-        <Text className="mx-3 text-[10px] font-semibold text-[#A09080]">또는</Text>
-        <View className="h-px flex-1 bg-border" />
-      </View>
-      <Text className="mt-3 text-center text-sm font-semibold text-[#A09080]">소셜 로그인</Text>
-      <View className="ml-[301px] h-[10px] w-[50px] rounded-[1px] bg-[#B8D4F0]" />
-      <View className="border border-border bg-white px-[70px] py-4">
-        <View className="flex-row items-center justify-center gap-11">
-          <Pressable
-            className="h-[36px] w-[36px] items-center justify-center rounded-sm border border-border bg-white"
-            disabled={isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting}
-            onPress={handleKakaoLogin}
-          >
-            <KakaoIcon width={32} height={32} />
-          </Pressable>
-          <Pressable
-            className="h-[36px] w-[36px] items-center justify-center rounded-sm border border-border bg-white"
-            disabled={isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting}
-            onPress={handleNaverLogin}
-          >
-            <NaverIcon width={32} height={32} />
-          </Pressable>
-          <Pressable
-            className="h-[36px] w-[36px] items-center justify-center rounded-sm border border-border bg-white"
-            disabled={isKakaoSubmitting || isNaverSubmitting || isGoogleSubmitting}
-            onPress={handleGoogleLogin}
-          >
-            <GoogleIcon width={32} height={32} />
-          </Pressable>
-        </View>
-      </View>
+      {/* 소셜 로그인은 연동 안정화 후 다시 노출합니다. */}
     </View>
   );
 }

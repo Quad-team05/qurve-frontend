@@ -4,20 +4,38 @@ import { checkAttendance } from '@/lib/api/attendance';
 import { ApiError } from '@/lib/api/client';
 import { getMyChallenges, normalizeChallengeManagement } from '@/lib/api/challenge';
 import {
+  addVocabBookmark,
   completeChallengeWords,
   completeVocabUnit,
+  getBookmarkedWords,
   getChallengeWords,
+  getVocabAudioSource,
   getVocabWords,
+  removeVocabBookmark,
   startVocabUnit,
 } from '@/lib/api/vocabulary';
-import type { JlptLevel, VocabWord, VocabWordsData } from '@/lib/api/vocabulary';
+import type { VocabularyLevel, VocabWord, VocabWordsData } from '@/lib/api/vocabulary';
 import { clearAuthSession } from '@/lib/auth/session';
+import { Ionicons } from '@expo/vector-icons';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const levels: JlptLevel[] = ['N1', 'N2', 'N3', 'N4', 'N5'];
+const levels: VocabularyLevel[] = [
+  'N1',
+  'N2',
+  'N3',
+  'N4',
+  'N5',
+  'A1',
+  'A2',
+  'B1',
+  'B2',
+  'C1',
+  'C2',
+];
 
 type StudyWord = VocabWord & {
   bookmarked: boolean;
@@ -38,10 +56,10 @@ function normalizeParam(value?: string | string[]) {
   return value;
 }
 
-function parseLevel(value?: string | string[]): JlptLevel {
+function parseLevel(value?: string | string[]): VocabularyLevel {
   const level = normalizeParam(value);
 
-  if (levels.includes(level as JlptLevel)) return level as JlptLevel;
+  if (levels.includes(level as VocabularyLevel)) return level as VocabularyLevel;
 
   return 'N5';
 }
@@ -70,7 +88,7 @@ function getErrorMessage(error: unknown, isChallengeMode = false) {
   }
 
   if (error.code === 'INVALID_LEVEL') {
-    return '지원하지 않는 JLPT 레벨입니다.';
+    return '현재 학습 언어에서 지원하지 않는 단어 레벨입니다.';
   }
 
   if (error.code === 'VOCABULARY_UNIT_NOT_FOUND') {
@@ -118,6 +136,17 @@ export default function VocabStudyPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [isCompleting, setIsCompleting] = useState(false);
+  const [playingWordId, setPlayingWordId] = useState<number | null>(null);
+  const audioPlayer = useAudioPlayer(null);
+  const audioStatus = useAudioPlayerStatus(audioPlayer);
+
+  useEffect(() => {
+    void setAudioModeAsync({ playsInSilentMode: true });
+  }, []);
+
+  useEffect(() => {
+    if (audioStatus.didJustFinish) setPlayingWordId(null);
+  }, [audioStatus.didJustFinish]);
 
   useEffect(() => {
     let mounted = true;
@@ -126,21 +155,24 @@ export default function VocabStudyPage() {
       try {
         setIsLoading(true);
         setErrorMessage('');
-        const nextWordsData = isChallengeMode
-          ? await (async () => {
-              const challengeWords = await getChallengeWords();
+        const [nextWordsData, bookmarkedWords] = await Promise.all([
+          isChallengeMode
+            ? (async () => {
+                const challengeWords = await getChallengeWords();
 
-              return {
-                level,
-                unitNumber: 0,
-                totalCount: challengeWords.length,
-                words: challengeWords,
-              };
-            })()
-          : await (async () => {
-              await startVocabUnit(level, unitNumber);
-              return getVocabWords(level, unitNumber);
-            })();
+                return {
+                  level,
+                  unitNumber: 0,
+                  totalCount: challengeWords.length,
+                  words: challengeWords,
+                };
+              })()
+            : (async () => {
+                await startVocabUnit(level, unitNumber);
+                return getVocabWords(level, unitNumber);
+              })(),
+          getBookmarkedWords(),
+        ]);
 
         if (!mounted) return;
 
@@ -148,12 +180,14 @@ export default function VocabStudyPage() {
           .slice()
           .sort((a, b) => a.orderNumber - b.orderNumber);
 
-        setWordsData(nextWordsData);
+        const bookmarkedWordIds = new Set(bookmarkedWords.map((word) => word.wordId));
+
+        setWordsData(nextWordsData as VocabWordsData);
         setWords(
           sortedWords.map((word, index) => ({
             ...word,
             orderNumber: word.orderNumber || index + 1,
-            bookmarked: false,
+            bookmarked: bookmarkedWordIds.has(word.wordId),
             revealed: false,
           })),
         );
@@ -181,12 +215,63 @@ export default function VocabStudyPage() {
     );
   };
 
-  const toggleBookmark = (wordId: number) => {
+  const toggleBookmark = async (wordId: number) => {
+    const word = words.find((item) => item.wordId === wordId);
+    if (!word) return;
+
+    const nextBookmarked = !word.bookmarked;
     setWords((prev) =>
-      prev.map((word) =>
-        word.wordId === wordId ? { ...word, bookmarked: !word.bookmarked } : word,
-      ),
+      prev.map((item) => (item.wordId === wordId ? { ...item, bookmarked: nextBookmarked } : item)),
     );
+
+    try {
+      if (nextBookmarked) {
+        await addVocabBookmark(wordId);
+      } else {
+        await removeVocabBookmark(wordId);
+      }
+    } catch (error) {
+      setWords((prev) =>
+        prev.map((item) =>
+          item.wordId === wordId ? { ...item, bookmarked: word.bookmarked } : item,
+        ),
+      );
+      showToast(error instanceof ApiError ? error.message : '북마크 변경에 실패했습니다.');
+    }
+  };
+
+  const playPronunciation = async (wordId: number) => {
+    try {
+      if (playingWordId === wordId && audioStatus.playing) {
+        audioPlayer.pause();
+        setPlayingWordId(null);
+        return;
+      }
+
+      const source = await getVocabAudioSource(wordId);
+      audioPlayer.replace(source);
+      audioPlayer.play();
+      setPlayingWordId(wordId);
+    } catch (error) {
+      setPlayingWordId(null);
+
+      if (error instanceof Error && error.message === 'AUTH_AUDIO_ERROR') {
+        showToast('음성 재생을 위해 다시 로그인해주세요.');
+        return;
+      }
+
+      if (error instanceof Error && error.message.startsWith('AUDIO_STATUS_')) {
+        const status = error.message.replace('AUDIO_STATUS_', '');
+        showToast(
+          status === '502'
+            ? '서버에서 음성 생성에 실패했습니다. 잠시 후 다시 시도해주세요.'
+            : `음성 파일 요청에 실패했습니다. (${status})`,
+        );
+        return;
+      }
+
+      showToast('단어 발음을 재생하지 못했습니다.');
+    }
   };
 
   const markAttendanceAfterLearning = async () => {
@@ -297,20 +382,45 @@ export default function VocabStudyPage() {
             <View key={word.wordId} className="mb-2.5 rounded-sm border border-border bg-white p-4">
               <View className="mb-2 flex-row items-center justify-between">
                 <Text className="font-regular text-xs text-text-brown">{word.orderNumber}</Text>
-                <Pressable onPress={() => toggleBookmark(word.wordId)}>
-                  <Text style={{ fontSize: 18, color: word.bookmarked ? '#D97706' : '#C8C0B0' }}>
-                    🔖
-                  </Text>
-                </Pressable>
+                <View className="flex-row items-center gap-x-3">
+                  <Pressable
+                    accessibilityLabel={`${word.expression} 발음 듣기`}
+                    hitSlop={8}
+                    onPress={() => void playPronunciation(word.wordId)}
+                  >
+                    <Ionicons
+                      name={
+                        playingWordId === word.wordId && audioStatus.playing
+                          ? 'pause-circle-outline'
+                          : 'volume-high-outline'
+                      }
+                      size={22}
+                      color="#6F7486"
+                    />
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel={word.bookmarked ? '북마크 해제' : '북마크 추가'}
+                    hitSlop={8}
+                    onPress={() => void toggleBookmark(word.wordId)}
+                  >
+                    <Ionicons
+                      name={word.bookmarked ? 'bookmark' : 'bookmark-outline'}
+                      size={20}
+                      color={word.bookmarked ? '#D97706' : '#C8C0B0'}
+                    />
+                  </Pressable>
+                </View>
               </View>
 
               <Text className="mb-1 text-center font-regular text-4xl text-btn-dark">
                 {word.expression}
               </Text>
 
-              <Text className="mb-3 text-center font-regular text-sm text-text-brown">
-                {word.reading}
-              </Text>
+              {word.reading ? (
+                <Text className="mb-3 text-center font-regular text-sm text-text-brown">
+                  {word.reading}
+                </Text>
+              ) : null}
 
               <Pressable
                 className="rounded-sm border border-border bg-bg py-2"

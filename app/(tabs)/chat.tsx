@@ -1,7 +1,10 @@
 import Text from '@/components/ui/AppText';
 import { clearAiChat, sendAiChatMessage } from '@/lib/api/ai';
-import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { ApiError } from '@/lib/api/client';
+import { getMyProfile, type LearningLanguage } from '@/lib/api/user';
+import { clearAuthSession } from '@/lib/auth/session';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -32,22 +35,80 @@ const RobotIcon = ({ size = 24, color = '#2A2018' }: { size?: number; color?: st
   </Svg>
 );
 
-const suggestions = [
+const japaneseSuggestions = [
   { icon: '📝', label: '오늘 틀린 문제 다시 설명해줘' },
   { icon: '💡', label: '단어 빠르게 외우는 방법이 있어?' },
   { icon: '📅', label: 'JLPT N5 시험 언제야?' },
   { icon: '🎯', label: '내 학습 패턴 분석해줘' },
 ];
 
-const chipSuggestions = ['오늘 학습 피드백', '틀린 문제 설명', '단어 외우는 팁', 'JLPT 시험 정보'];
+const englishSuggestions = [
+  { icon: '📝', label: '오늘 틀린 영어 문제 다시 설명해줘' },
+  { icon: '💡', label: '영어 단어 빠르게 외우는 방법이 있어?' },
+  { icon: '📅', label: 'TOEIC 시험 준비 방법을 알려줘' },
+  { icon: '🎯', label: '내 영어 학습 패턴을 분석해줘' },
+];
+
+const japaneseChipSuggestions = [
+  '오늘 학습 피드백',
+  '틀린 문제 설명',
+  '단어 외우는 팁',
+  'JLPT 시험 정보',
+];
+
+const englishChipSuggestions = [
+  '오늘 영어 학습 피드백',
+  '틀린 영어 문제 설명',
+  '영어 단어 외우는 팁',
+  'TOEIC 시험 정보',
+];
 
 export default function ChatPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [learningLanguage, setLearningLanguage] = useState<LearningLanguage>('JAPANESE');
   const scrollRef = useRef<ScrollView>(null);
+  const previousLanguageRef = useRef<LearningLanguage | null>(null);
   const hasMessages = messages.length > 0;
+  const isEnglish = learningLanguage === 'ENGLISH';
+  const suggestions = isEnglish ? englishSuggestions : japaneseSuggestions;
+  const chipSuggestions = isEnglish ? englishChipSuggestions : japaneseChipSuggestions;
+
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+
+      const loadLearningLanguage = async () => {
+        try {
+          const profile = await getMyProfile();
+          const nextLanguage = profile.learningLanguage ?? 'JAPANESE';
+
+          if (!mounted) return;
+
+          if (previousLanguageRef.current && previousLanguageRef.current !== nextLanguage) {
+            setMessages([]);
+            setInput('');
+          }
+
+          previousLanguageRef.current = nextLanguage;
+          setLearningLanguage(nextLanguage);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            await clearAuthSession();
+            router.replace('/(app)/auth/login');
+          }
+        }
+      };
+
+      void loadLearningLanguage();
+
+      return () => {
+        mounted = false;
+      };
+    }, [router]),
+  );
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isSending) return;
@@ -62,10 +123,19 @@ export default function ChatPage() {
       const result = await sendAiChatMessage(text.trim());
       const aiMsg: Message = { role: 'ai', text: result.message };
       setMessages((prev) => [...prev, aiMsg]);
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearAuthSession();
+        router.replace('/(app)/auth/login');
+        return;
+      }
+
       const errorMsg: Message = {
         role: 'ai',
-        text: '죄송해요, 지금은 답변할 수 없어요. 잠시 후 다시 시도해주세요.',
+        text:
+          error instanceof ApiError
+            ? error.message
+            : '죄송해요, 지금은 답변할 수 없어요. 잠시 후 다시 시도해주세요.',
       };
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
@@ -137,7 +207,8 @@ export default function ChatPage() {
                 QURVE AI 학습 코치
               </Text>
               <Text className="text-center font-regular text-xs text-text-brown">
-                학습 관련 질문을 자유롭게 물어봐요!{'\n'}단어, 문법, 시험 정보 뭐든지 OK
+                {isEnglish ? '영어' : '일본어'} 학습 관련 질문을 자유롭게 물어봐요!{'\n'}
+                단어, 문법, 시험 정보 뭐든지 OK
               </Text>
             </View>
 
@@ -210,7 +281,8 @@ export default function ChatPage() {
                     }}
                   >
                     <Text className="font-regular text-sm text-btn-dark" style={{ lineHeight: 20 }}>
-                      안녕하세요! 🔥{'\n'}오늘 학습 어떠셨나요? 궁금한 점이 있으면 편하게 물어봐요!
+                      안녕하세요! 🔥{'\n'}오늘 {isEnglish ? '영어' : '일본어'} 학습 어떠셨나요?
+                      궁금한 점이 있으면 편하게 물어봐요!
                     </Text>
                   </View>
                 </View>

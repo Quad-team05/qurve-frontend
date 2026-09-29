@@ -147,6 +147,19 @@ function mapQuestionFormatToLabel(questionFormat?: string) {
   }
 }
 
+function isListeningProblem(problem: ProblemItem) {
+  if (problem.audioUrl?.trim()) return true;
+
+  const problemTypes = [problem.category, problem.subType, problem.questionFormat]
+    .filter(Boolean)
+    .map((value) => value.toUpperCase());
+
+  return problemTypes.some(
+    (value) =>
+      value.includes('LISTENING') || value.includes('DICTATION') || value.includes('AUDIO'),
+  );
+}
+
 function buildLevelCandidates(preferredLevel: JlptLevel) {
   return [preferredLevel, ...FALLBACK_LEVELS].filter(
     (level, index, levels) => levels.indexOf(level) === index,
@@ -336,9 +349,13 @@ export default function SolveProblemPage() {
                   }
                 : request,
             );
+            const nonListeningProblems = response.problems.filter(
+              (problem) => !isListeningProblem(problem),
+            );
+
             if (isEnglishLearning) {
               const isDailyLife = learningGoalParam === 'DAILY_LIFE';
-              const filteredProblems = response.problems
+              const filteredProblems = nonListeningProblems
                 .filter((problem) =>
                   isDailyLife
                     ? problem.category === 'DAILY_ENGLISH'
@@ -348,6 +365,20 @@ export default function SolveProblemPage() {
 
               if (filteredProblems.length === 0) {
                 throw new ApiError('학습 목적에 맞는 영어 문제를 찾을 수 없습니다.', 404, {
+                  code: 'PROBLEM_NOT_FOUND',
+                });
+              }
+
+              response = {
+                ...response,
+                problemCount: filteredProblems.length,
+                problems: filteredProblems,
+              };
+            } else {
+              const filteredProblems = nonListeningProblems.slice(0, count);
+
+              if (filteredProblems.length === 0) {
+                throw new ApiError('표시할 수 있는 문제가 없습니다.', 404, {
                   code: 'PROBLEM_NOT_FOUND',
                 });
               }
@@ -424,6 +455,10 @@ export default function SolveProblemPage() {
   const currentQuestion = problems[currentQuestionIndex];
   const totalProblemCount = problems.length;
   const selectedChoiceNumber = selectedByQuestion[currentQuestionIndex] ?? null;
+  const questionFormatLabel = mapQuestionFormatToLabel(currentQuestion?.questionFormat);
+  const currentSubTypeLabel = mapSubTypeToLabel(currentQuestion?.subType || displaySubTypeLabel);
+  const showSubTypeLabel =
+    currentSubTypeLabel.trim().toUpperCase() !== questionFormatLabel.trim().toUpperCase();
   const progressPercent = totalProblemCount
     ? ((currentQuestionIndex + 1) / totalProblemCount) * 100
     : 0;
@@ -558,13 +593,13 @@ export default function SolveProblemPage() {
       <View className="flex-1 px-4 pt-3">
         <View className="mb-4 flex-row gap-2">
           <Pressable className="rounded-sm border border-border bg-white px-4 py-2">
-            <Text className="text-xs font-semibold text-text-brown">
-              {mapQuestionFormatToLabel(currentQuestion?.questionFormat)}
-            </Text>
+            <Text className="text-xs font-semibold text-text-brown">{questionFormatLabel}</Text>
           </Pressable>
-          <Pressable className="rounded-sm border border-border bg-white px-4 py-2">
-            <Text className="text-xs font-semibold text-text-brown">{displaySubTypeLabel}</Text>
-          </Pressable>
+          {showSubTypeLabel ? (
+            <Pressable className="rounded-sm border border-border bg-white px-4 py-2">
+              <Text className="text-xs font-semibold text-text-brown">{currentSubTypeLabel}</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {isLoading ? (

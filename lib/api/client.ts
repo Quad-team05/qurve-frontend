@@ -39,7 +39,7 @@ export class ApiError extends Error {
   }
 }
 
-function buildApiUrl(path: string) {
+export function buildApiUrl(path: string) {
   if (/^https?:\/\//.test(path)) return path;
 
   const baseUrl = API_BASE_URL.replace(/\/$/, '');
