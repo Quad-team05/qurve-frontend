@@ -1,7 +1,7 @@
 import Text from '@/components/ui/AppText';
 import TextInput from '@/components/ui/AppTextInput';
-import { ApiError, API_BASE_URL } from '@/lib/api/client';
 import { login } from '@/lib/api/auth';
+import { API_BASE_URL, ApiError } from '@/lib/api/client';
 import { getMyProfile } from '@/lib/api/user';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -55,8 +55,8 @@ export default function LoginPage() {
 
       const profile = await getMyProfile();
 
-      if (profile.learningLanguage === 'ENGLISH' && profile.currentLevel == null) {
-        router.replace('/(app)/level/test-survey');
+      if (profile.currentLevel == null) {
+        router.replace('/(app)/level/language-select');
         return;
       }
 

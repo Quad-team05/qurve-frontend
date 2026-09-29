@@ -104,3 +104,19 @@ export async function updateLearningProfile(
   });
   return response.data;
 }
+
+export function getLearningStageLabel(stage: LearningStage | string | null | undefined): string {
+  const labels: Record<string, string> = {
+    JLPT_N1: 'JLPT N1',
+    JLPT_N2: 'JLPT N2',
+    JLPT_N3: 'JLPT N3',
+    JLPT_N4: 'JLPT N4',
+    JLPT_N5: 'JLPT N5',
+    TOEIC_500_PLUS: 'TOEIC 500+',
+    TOEIC_600_PLUS: 'TOEIC 600+',
+    TOEIC_700_PLUS: 'TOEIC 700+',
+    TOEIC_800_PLUS: 'TOEIC 800+',
+    TOEIC_900_PLUS: 'TOEIC 900+',
+  };
+  return stage ? (labels[stage] ?? stage) : '레벨 미설정';
+}

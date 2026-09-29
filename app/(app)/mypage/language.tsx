@@ -2,6 +2,7 @@ import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { ApiError } from '@/lib/api/client';
 import {
+  getLearningStageLabel,
   getMyProfile,
   updateLearningLanguage,
   type LearningLanguage,
@@ -61,6 +62,19 @@ export default function LanguageSettingsPage() {
     try {
       setIsSwitching(true);
       await updateLearningLanguage(nextLanguage);
+
+      const updatedProfile = await getMyProfile();
+
+      if (updatedProfile.currentLevel == null) {
+        showToast(
+          nextLanguage === 'ENGLISH'
+            ? '영어 학습으로 전환했어요. 레벨 테스트를 진행해주세요.'
+            : '일본어 학습으로 전환했어요. 레벨 테스트를 진행해주세요.',
+        );
+        router.replace('/(app)/level/test-survey');
+        return;
+      }
+
       showToast(
         nextLanguage === 'ENGLISH' ? '영어 학습으로 전환했어요.' : '일본어 학습으로 전환했어요.',
       );
@@ -103,7 +117,11 @@ export default function LanguageSettingsPage() {
               <View className="flex-1">
                 <Text className="font-semiBold text-sm text-btn-dark">일본어</Text>
                 <Text className="mt-0.5 font-regular text-xs text-text-brown">
-                  {isLoading ? '불러오는 중...' : `Lv.${profile?.currentLevel ?? '-'}`}
+                  {isLoading
+                    ? '불러오는 중...'
+                    : isJapaneseActive
+                      ? getLearningStageLabel(profile?.learningStage)
+                      : '전환 후 확인할 수 있어요'}
                 </Text>
               </View>
               {isJapaneseActive && (
@@ -146,9 +164,11 @@ export default function LanguageSettingsPage() {
               <View className="flex-1">
                 <Text className="font-semiBold text-sm text-btn-dark">영어</Text>
                 <Text className="mt-0.5 font-regular text-xs text-text-brown">
-                  {isJapaneseActive
-                    ? '전환 후 확인할 수 있어요'
-                    : `Lv.${profile?.currentLevel ?? '-'}`}
+                  {isLoading
+                    ? '불러오는 중...'
+                    : !isJapaneseActive
+                      ? getLearningStageLabel(profile?.learningStage)
+                      : '전환 후 확인할 수 있어요'}
                 </Text>
               </View>
               {!isJapaneseActive && (
