@@ -81,7 +81,7 @@ export default function LoginPage() {
   return (
     <View className="flex-1 bg-bg px-5 py-9">
       <View className="mb-6 flex-row items-center justify-between rounded-sm"></View>
-      <Text className="text-[11px] font-medium text-[#A09080]">일본어 학습의 새로운 경험</Text>
+      <Text className="text-[11px] font-medium text-[#A09080]">학습의 새로운 경험</Text>
       <Text className="mt-[7px] text-[40px] font-extrabold text-btn-dark">Qurve</Text>
       <View className="ml-[12px] mt-3 h-[10px] w-[50px] rounded-[1px] bg-[#FFE566]" />
       <View className="w-full rounded-sm border border-border bg-white px-4 py-4">

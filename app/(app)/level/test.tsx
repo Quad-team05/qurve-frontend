@@ -8,7 +8,7 @@ import {
   type LearningLanguage,
   type LevelTestQuestion,
 } from '@/lib/api/level';
-import { clearAuthSession } from '@/lib/auth/session';
+import { clearAuthSession, clearNeedsLevelTest } from '@/lib/auth/session';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
@@ -181,6 +181,7 @@ export default function LevelTestPage() {
       });
 
       await saveLevel(result.level, result.learningLanguage);
+      await clearNeedsLevelTest();
 
       router.replace({
         pathname: '/(app)/level/assign',

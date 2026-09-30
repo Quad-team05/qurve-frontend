@@ -111,17 +111,31 @@ export default function LevelAssignPage() {
 
         <View className="mt-[18px] flex-row gap-2 pt-5">
           <Pressable
-            className="h-[43px] flex-1 items-center justify-center rounded-xl border border-border bg-white px-7 py-3"
+            className="min-h-[48px] flex-1 items-center justify-center rounded-xl border border-border bg-white px-3 py-3"
             onPress={() => router.replace('/(app)/level/test-survey')}
           >
-            <Text className="font-bold text-base text-[#3C322A]">테스트 다시보기</Text>
+            <Text
+              className="text-center font-bold text-sm text-[#3C322A]"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              다시보기
+            </Text>
           </Pressable>
 
           <Pressable
-            className="h-[43px] flex-1 items-center justify-center rounded-xl bg-btn-dark px-7 py-3"
+            className="min-h-[48px] flex-1 items-center justify-center rounded-xl bg-btn-dark px-3 py-3"
             onPress={() => router.navigate('/(tabs)')}
           >
-            <Text className="font-bold text-base text-white">학습 시작하기</Text>
+            <Text
+              className="text-center font-bold text-sm text-white"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              학습하기
+            </Text>
           </Pressable>
         </View>
       </View>

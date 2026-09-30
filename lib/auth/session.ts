@@ -81,6 +81,10 @@ export async function markNeedsLevelTest() {
   await setItem(NEEDS_LEVEL_TEST_KEY, 'true');
 }
 
+export async function clearNeedsLevelTest() {
+  await deleteItem(NEEDS_LEVEL_TEST_KEY);
+}
+
 export async function consumeNeedsLevelTest() {
   const needsLevelTest = await getItem(NEEDS_LEVEL_TEST_KEY);
 
