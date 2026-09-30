@@ -17,6 +17,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const GREEN_LIGHT = '#E1F5EE';
 const GREEN_BORDER = '#5DCAA5';
 const GREEN_TEXT = '#0F6E56';
+
+function getProfileLevelLabel(profile: UserProfile | null) {
+  if (profile?.learningStage) return getLearningStageLabel(profile.learningStage);
+  if (profile?.currentLevel != null) return `Level ${profile.currentLevel}`;
+  return '레벨 미설정';
+}
+
 function showToast(message: string) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
@@ -120,7 +127,7 @@ export default function LanguageSettingsPage() {
                   {isLoading
                     ? '불러오는 중...'
                     : isJapaneseActive
-                      ? getLearningStageLabel(profile?.learningStage)
+                      ? getProfileLevelLabel(profile)
                       : '전환 후 확인할 수 있어요'}
                 </Text>
               </View>
@@ -167,7 +174,7 @@ export default function LanguageSettingsPage() {
                   {isLoading
                     ? '불러오는 중...'
                     : !isJapaneseActive
-                      ? getLearningStageLabel(profile?.learningStage)
+                      ? getProfileLevelLabel(profile)
                       : '전환 후 확인할 수 있어요'}
                 </Text>
               </View>
