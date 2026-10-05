@@ -49,6 +49,17 @@ export type LevelTestResultRequest = {
   answers: number[]; // 정확히 10개
 };
 
+export type LevelTestQuestionResult = {
+  questionId: number;
+  questionText: string;
+  difficulty: string;
+  selectedOptionId: number;
+  selectedOptionText: string;
+  correctOptionId: number;
+  correctOptionText: string;
+  correct: boolean;
+};
+
 export type LevelTestResult = {
   learningLanguage: LearningLanguage;
   caseNumber: number;
@@ -56,6 +67,7 @@ export type LevelTestResult = {
   correctCount: number;
   wrongCount: number;
   level: number;
+  questionResults: LevelTestQuestionResult[];
 };
 
 export async function getPreQuestions() {
