@@ -1,6 +1,6 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -47,6 +47,7 @@ export default function LevelAssignPage() {
     level?: string | string[];
     title?: string | string[];
     description?: string | string[];
+    questionResults?: string | string[];
   }>();
 
   const score = parseNumberParam(params.score);
@@ -57,6 +58,7 @@ export default function LevelAssignPage() {
   const scorePercent = Math.max(0, Math.min(100, score));
   const title = normalizeParam(params.title) || getFallbackTitle(level);
   const description = normalizeParam(params.description) || getFallbackDescription(level);
+  const questionResults = normalizeParam(params.questionResults);
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -109,7 +111,21 @@ export default function LevelAssignPage() {
           </View>
         </View>
 
-        <View className="mt-[18px] flex-row gap-2 pt-5">
+        {questionResults ? (
+          <Pressable
+            className="mt-[18px] min-h-[48px] items-center justify-center rounded-xl border border-border bg-white px-3 py-3"
+            onPress={() =>
+              router.push({
+                pathname: '/(app)/level/review',
+                params: { questionResults },
+              } as Href)
+            }
+          >
+            <Text className="text-center font-bold text-sm text-[#3C322A]">정답/오답 확인</Text>
+          </Pressable>
+        ) : null}
+
+        <View className="mt-2 flex-row gap-2">
           <Pressable
             className="min-h-[48px] flex-1 items-center justify-center rounded-xl border border-border bg-white px-3 py-3"
             onPress={() => router.replace('/(app)/level/test-survey')}

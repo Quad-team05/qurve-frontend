@@ -18,7 +18,7 @@ import {
 import { getProblemAccuracy, type ProblemAccuracy } from '@/lib/api/problem';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import { clearAuthSession, consumeNeedsLevelTest } from '@/lib/auth/session';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -345,7 +345,8 @@ export default function HomeScreen() {
           <View className="absolute top-0 z-10 h-[13px] w-[50px] rounded-sm bg-[#F9C8D8] opacity-80" />
           <Pressable
             className="w-full rounded-sm border border-border bg-white p-4 pt-5"
-            onPress={() => router.push('/(app)/learning/problems/today')}
+            disabled={isProfileLoading || profile?.learningLanguage === 'ENGLISH'}
+            onPress={() => router.push('/(app)/learning/expression/basic' as Href)}
           >
             <Text className="mb-1 font-regular text-xs text-text-brown">오늘의 표현</Text>
             <Text className="font-regular text-2xl text-btn-dark">
@@ -358,9 +359,11 @@ export default function HomeScreen() {
                 {todayExpression.korean}
               </Text>
             ) : null}
-            <Text className="font-semiBold mt-2 self-end text-sm text-text-brown">
-              학습하러 가기 →
-            </Text>
+            {profile?.learningLanguage !== 'ENGLISH' ? (
+              <Text className="font-semiBold mt-2 self-end text-sm text-text-brown">
+                학습하러 가기 →
+              </Text>
+            ) : null}
           </Pressable>
         </View>
 
