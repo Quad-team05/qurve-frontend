@@ -1,4 +1,6 @@
 import { apiFetch } from '@/lib/api/client';
+import { getBookmarkedProblems } from '@/lib/api/problem';
+import { filterBookmarkedWrongNotes } from '@/lib/learning/wrong-note';
 
 type ApiResponse<T> = {
   success: boolean;
@@ -67,6 +69,23 @@ export async function getWrongNotes(yearMonth: string) {
   );
 
   return response.data;
+}
+
+export async function getBookmarkedWrongNotes(yearMonth: string) {
+  const [wrongNoteResult, bookmarkedProblems] = await Promise.all([
+    getWrongNotes(yearMonth),
+    getBookmarkedProblems(),
+  ]);
+  const wrongNotes = filterBookmarkedWrongNotes(
+    wrongNoteResult.wrongNotes,
+    bookmarkedProblems.map((problem) => problem.problemId),
+  );
+
+  return {
+    ...wrongNoteResult,
+    wrongNoteDates: [...new Set(wrongNotes.map((wrongNote) => wrongNote.wrongAnsweredDate))],
+    wrongNotes,
+  };
 }
 
 export async function getWrongNoteSolution(problemId: number, wrongSubmissionId?: number) {

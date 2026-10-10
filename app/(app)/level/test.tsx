@@ -194,7 +194,7 @@ export default function LevelTestPage() {
           level: String(result.level),
           title: getLevelTitle(result.level, result.learningLanguage),
           description: getLevelDescription(result.level),
-          questionResults: JSON.stringify(result.questionResults),
+          questionResults: JSON.stringify(result.questionResults ?? []),
         },
       });
     } catch (error) {

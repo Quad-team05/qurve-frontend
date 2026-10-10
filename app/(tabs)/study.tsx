@@ -8,7 +8,8 @@ import {
   type ChallengeMain,
 } from '@/lib/api/challenge';
 import { ApiError } from '@/lib/api/client';
-import { getLearningMain, getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import { getTodayLearning, type TodayLearning } from '@/lib/api/learning';
+import { getBookmarkedWrongNotes } from '@/lib/api/wrongnote';
 import {
   getMyProfile,
   updateLearningLanguage,
@@ -68,6 +69,11 @@ function showToast(message: string) {
 
 function getProgressBarWidth(progressRate: number) {
   return `${Math.max(0, Math.min(100, progressRate))}%` as `${number}%`;
+}
+
+function getCurrentYearMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function isChallengeAchieved(challenge: ChallengeMain) {
@@ -308,9 +314,9 @@ export default function StudyPage() {
       const loadWrongNoteCount = async () => {
         try {
           setIsWrongNoteCountLoading(true);
-          const learningMain = await getLearningMain();
+          const result = await getBookmarkedWrongNotes(getCurrentYearMonth());
 
-          if (mounted) setWrongNoteCount(learningMain.wrongNoteCount);
+          if (mounted) setWrongNoteCount(result.wrongNotes.length);
         } catch (error) {
           if (error instanceof ApiError && error.status === 401) {
             await clearAuthSession();

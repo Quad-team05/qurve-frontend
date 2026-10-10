@@ -111,19 +111,17 @@ export default function LevelAssignPage() {
           </View>
         </View>
 
-        {questionResults ? (
-          <Pressable
-            className="mt-[18px] min-h-[48px] items-center justify-center rounded-xl border border-border bg-white px-3 py-3"
-            onPress={() =>
-              router.push({
-                pathname: '/(app)/level/review',
-                params: { questionResults },
-              } as Href)
-            }
-          >
-            <Text className="text-center font-bold text-sm text-[#3C322A]">정답/오답 확인</Text>
-          </Pressable>
-        ) : null}
+        <Pressable
+          className="mt-[18px] min-h-[48px] items-center justify-center rounded-xl border border-border bg-white px-3 py-3"
+          onPress={() =>
+            router.push({
+              pathname: '/(app)/level/review',
+              params: { questionResults: questionResults ?? '[]' },
+            } as Href)
+          }
+        >
+          <Text className="text-center font-bold text-sm text-[#3C322A]">정답/오답 확인</Text>
+        </Pressable>
 
         <View className="mt-2 flex-row gap-2">
           <Pressable

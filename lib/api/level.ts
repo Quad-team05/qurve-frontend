@@ -67,7 +67,7 @@ export type LevelTestResult = {
   correctCount: number;
   wrongCount: number;
   level: number;
-  questionResults: LevelTestQuestionResult[];
+  questionResults?: LevelTestQuestionResult[];
 };
 
 export async function getPreQuestions() {

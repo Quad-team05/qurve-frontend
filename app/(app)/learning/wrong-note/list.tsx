@@ -1,7 +1,7 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
 import { ApiError } from '@/lib/api/client';
-import { getWrongNotes, type WrongNoteSummary } from '@/lib/api/wrongnote';
+import { getBookmarkedWrongNotes, type WrongNoteSummary } from '@/lib/api/wrongnote';
 import { clearAuthSession } from '@/lib/auth/session';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -110,10 +110,10 @@ export default function WrongNoteListPage() {
     try {
       setIsLoading(true);
       setErrorMessage('');
-      const result = await getWrongNotes(currentMonth);
+      const result = await getBookmarkedWrongNotes(currentMonth);
       setWrongNoteDates(result.wrongNoteDates);
       setWrongNotes(result.wrongNotes);
-      setSelectedDate((previous) => (previous?.startsWith(result.yearMonth) ? previous : null));
+      setSelectedDate((previous) => (previous?.startsWith(currentMonth) ? previous : null));
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         await clearAuthSession();

@@ -79,7 +79,9 @@ export default function LevelTestReviewPage() {
         {visibleResults.length === 0 ? (
           <View className="rounded-sm border border-border bg-white p-4">
             <Text className="text-center font-regular text-sm text-text-brown">
-              {results.length === 0 ? '채점 결과를 확인할 수 없습니다.' : '틀린 문제가 없습니다.'}
+              {results.length === 0
+                ? '문항별 채점 결과를 불러오지 못했습니다. 서버 업데이트 후 다시 테스트해주세요.'
+                : '틀린 문제가 없습니다.'}
             </Text>
           </View>
         ) : (
