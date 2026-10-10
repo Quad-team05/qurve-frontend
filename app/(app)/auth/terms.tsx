@@ -1,5 +1,6 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
+import { privacyPolicySections } from '@/lib/legal/privacy-policy';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,16 +15,7 @@ const sections = [
       '5. 관련 법령 또는 정책 위반 시 서비스 이용이 제한될 수 있습니다.',
     ],
   },
-  {
-    title: '개인정보 수집 및 이용 동의',
-    content: [
-      '1. 수집 항목: 아이디, 비밀번호, 이름, 닉네임, 이메일',
-      '2. 수집 목적: 회원 식별, 서비스 제공, 문의 대응, 공지 전달',
-      '3. 보유 기간: 회원 탈퇴 시까지(관계 법령에 따라 별도 보관 가능)',
-      '4. 이용자는 개인정보 수집·이용 동의를 거부할 권리가 있습니다.',
-      '5. 단, 필수 항목 동의 거부 시 회원가입 및 서비스 이용이 제한될 수 있습니다.',
-    ],
-  },
+  ...privacyPolicySections,
   {
     title: '마케팅 정보 수신 동의(선택)',
     content: [

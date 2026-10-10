@@ -40,7 +40,13 @@
       ],
       "expo-secure-store",
       "expo-font",
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "recordAudioAndroid": false,
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

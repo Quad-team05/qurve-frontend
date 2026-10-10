@@ -9,7 +9,7 @@ import {
 import { ApiError } from '@/lib/api/client';
 import { getMyProfile, type UserProfile } from '@/lib/api/user';
 import { clearAuthSession } from '@/lib/auth/session';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -205,6 +205,17 @@ export default function MyPage() {
             <View className="flex-row items-center gap-x-3">
               <Text style={{ fontSize: 18 }}>🌐</Text>
               <Text className="font-regular text-sm text-btn-dark">학습 언어</Text>
+            </View>
+            <Text className="font-regular text-sm text-text-brown">›</Text>
+          </Pressable>
+
+          <Pressable
+            className="flex-row items-center justify-between border-b border-border px-4 py-4"
+            onPress={() => router.push('/(app)/mypage/privacy-policy' as Href)}
+          >
+            <View className="flex-row items-center gap-x-3">
+              <Text style={{ fontSize: 18 }}>🔐</Text>
+              <Text className="font-regular text-sm text-btn-dark">개인정보처리방침</Text>
             </View>
             <Text className="font-regular text-sm text-text-brown">›</Text>
           </Pressable>
