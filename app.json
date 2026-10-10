@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "qurve",
-    "slug": "qurve-frontend",
+    "slug": "qurve",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
@@ -20,7 +20,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.sunjung23steam.qurvefrontend"
+      "package": "com.quadteam.qurve"
     },
     "web": {
       "output": "static",
