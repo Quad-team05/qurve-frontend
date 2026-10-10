@@ -2,7 +2,8 @@ import Text from '@/components/ui/AppText';
 import TextInput from '@/components/ui/AppTextInput';
 import { login } from '@/lib/api/auth';
 import { API_BASE_URL, ApiError } from '@/lib/api/client';
-import { getMyProfile } from '@/lib/api/user';
+import { getMyProfile, hasCompletedLevelTest } from '@/lib/api/user';
+import { clearNeedsLevelTest } from '@/lib/auth/session';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Platform, Pressable, ToastAndroid, View } from 'react-native';
@@ -55,11 +56,12 @@ export default function LoginPage() {
 
       const profile = await getMyProfile();
 
-      if (profile.currentLevel == null) {
+      if (!hasCompletedLevelTest(profile)) {
         router.replace('/(app)/level/language-select');
         return;
       }
 
+      await clearNeedsLevelTest();
       router.replace('/(tabs)');
     } catch (error) {
       if (

@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api/client';
+export { getProfileCurrentLevel, hasCompletedLevelTest } from '@/lib/user/profile-level';
 
 type ApiResponse<T> = {
   success: boolean;
@@ -18,6 +19,8 @@ export type UserProfile = {
   learningStageEditable?: boolean;
   learningLanguage?: 'JAPANESE' | 'ENGLISH';
   currentLevel: number | null;
+  currentLevelJapanese?: number | null;
+  currentLevelEnglish?: number | null;
   emailVerified: boolean;
   role: string;
   createdAt: string;

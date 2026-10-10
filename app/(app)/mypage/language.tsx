@@ -3,7 +3,9 @@ import TopBar from '@/components/ui/TopBar';
 import { ApiError } from '@/lib/api/client';
 import {
   getLearningStageLabel,
+  getProfileCurrentLevel,
   getMyProfile,
+  hasCompletedLevelTest,
   updateLearningLanguage,
   type LearningLanguage,
   type UserProfile,
@@ -20,7 +22,10 @@ const GREEN_TEXT = '#0F6E56';
 
 function getProfileLevelLabel(profile: UserProfile | null) {
   if (profile?.learningStage) return getLearningStageLabel(profile.learningStage);
-  if (profile?.currentLevel != null) return `Level ${profile.currentLevel}`;
+  if (profile) {
+    const currentLevel = getProfileCurrentLevel(profile);
+    if (currentLevel != null) return `Level ${currentLevel}`;
+  }
   return '레벨 미설정';
 }
 
@@ -72,7 +77,7 @@ export default function LanguageSettingsPage() {
 
       const updatedProfile = await getMyProfile();
 
-      if (updatedProfile.currentLevel == null) {
+      if (!hasCompletedLevelTest(updatedProfile)) {
         showToast(
           nextLanguage === 'ENGLISH'
             ? '영어 학습으로 전환했어요. 레벨 테스트를 진행해주세요.'
