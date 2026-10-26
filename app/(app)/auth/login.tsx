@@ -1,9 +1,11 @@
+import GoogleIcon from '@/assets/icons/google.svg';
 import Text from '@/components/ui/AppText';
 import TextInput from '@/components/ui/AppTextInput';
 import { login } from '@/lib/api/auth';
 import { API_BASE_URL, ApiError } from '@/lib/api/client';
 import { getMyProfile, hasCompletedLevelTest } from '@/lib/api/user';
 import { clearNeedsLevelTest } from '@/lib/auth/session';
+import { loginWithGoogle } from '@/lib/auth/social-login';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Platform, Pressable, ToastAndroid, View } from 'react-native';
@@ -24,6 +26,7 @@ export default function LoginPage() {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
   const hasEmptyField = !loginId.trim() || !password.trim();
   const isLoginDisabled = isSubmitting || hasEmptyField;
@@ -80,6 +83,34 @@ export default function LoginPage() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    if (isSubmitting || isGoogleSubmitting) return;
+
+    try {
+      setIsGoogleSubmitting(true);
+      const result = await loginWithGoogle();
+
+      if (!result.success) {
+        if (!result.cancelled) showToast(result.message);
+        return;
+      }
+
+      const profile = await getMyProfile();
+
+      if (!hasCompletedLevelTest(profile)) {
+        router.replace('/(app)/level/language-select');
+        return;
+      }
+
+      await clearNeedsLevelTest();
+      router.replace('/(tabs)');
+    } catch (error) {
+      showToast(error instanceof ApiError ? error.message : '구글 로그인 중 문제가 발생했습니다.');
+    } finally {
+      setIsGoogleSubmitting(false);
+    }
+  };
+
   return (
     <View className="flex-1 bg-bg px-5 py-9">
       <View className="mb-6 flex-row items-center justify-between rounded-sm"></View>
@@ -133,7 +164,23 @@ export default function LoginPage() {
           <Text className="font-bold text-sm text-[#A09080]">회원가입</Text>
         </Pressable>
       </View>
-      {/* 소셜 로그인은 연동 안정화 후 다시 노출합니다. */}
+      <View className="mt-9 flex-row items-center">
+        <View className="h-px flex-1 bg-border" />
+        <Text className="mx-3 text-[10px] font-semibold text-[#A09080]">또는</Text>
+        <View className="h-px flex-1 bg-border" />
+      </View>
+      <Text className="mt-3 text-center text-sm font-semibold text-[#A09080]">소셜 로그인</Text>
+      <View className="mt-2 items-center border border-border bg-white py-4">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="구글로 로그인"
+          className="h-[40px] w-[40px] items-center justify-center rounded-sm border border-border bg-white"
+          disabled={isSubmitting || isGoogleSubmitting}
+          onPress={handleGoogleLogin}
+        >
+          <GoogleIcon width={34} height={34} />
+        </Pressable>
+      </View>
     </View>
   );
 }
