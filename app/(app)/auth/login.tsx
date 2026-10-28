@@ -6,7 +6,7 @@ import { API_BASE_URL, ApiError } from '@/lib/api/client';
 import { getMyProfile, hasCompletedLevelTest } from '@/lib/api/user';
 import { clearNeedsLevelTest } from '@/lib/auth/session';
 import { loginWithGoogle } from '@/lib/auth/social-login';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Platform, Pressable, ToastAndroid, View } from 'react-native';
 
@@ -91,6 +91,14 @@ export default function LoginPage() {
       const result = await loginWithGoogle();
 
       if (!result.success) {
+        if ('accountLinkRequired' in result && result.accountLinkRequired) {
+          router.push({
+            pathname: '/(app)/auth/account-link',
+            params: { linkTicket: result.linkTicket },
+          } as unknown as Href);
+          return;
+        }
+
         if (!result.cancelled) showToast(result.message);
         return;
       }

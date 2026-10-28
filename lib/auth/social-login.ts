@@ -6,10 +6,11 @@ import { Platform } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type SocialLoginResult =
+export type SocialLoginResult =
   | { success: true }
+  | { success: false; cancelled: false; accountLinkRequired: true; linkTicket: string }
   | { success: false; cancelled: true }
-  | { success: false; cancelled: false; message: string };
+  | { success: false; cancelled: false; accountLinkRequired?: false; message: string };
 
 type SocialProvider = 'kakao' | 'naver' | 'google';
 const NATIVE_SOCIAL_CALLBACK_URL = 'qurvefrontend://auth/social-callback';
@@ -49,6 +50,18 @@ function extractTokens(callbackUrl: string) {
   };
 }
 
+function extractAccountLinkTicket(callbackUrl: string) {
+  const parsed = Linking.parse(callbackUrl);
+  const error = parsed.queryParams?.error;
+  const linkTicket = parsed.queryParams?.linkTicket;
+
+  if (error !== 'ACCOUNT_LINK_REQUIRED' || typeof linkTicket !== 'string' || !linkTicket) {
+    return null;
+  }
+
+  return linkTicket;
+}
+
 async function loginWithProvider(
   provider: SocialProvider,
   providerLabel: string,
@@ -68,6 +81,17 @@ async function loginWithProvider(
         success: false,
         cancelled: false,
         message: `${providerLabel} 로그인에 실패했습니다.`,
+      };
+    }
+
+    const linkTicket = extractAccountLinkTicket(result.url);
+
+    if (linkTicket) {
+      return {
+        success: false,
+        cancelled: false,
+        accountLinkRequired: true,
+        linkTicket,
       };
     }
 

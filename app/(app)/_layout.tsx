@@ -8,6 +8,7 @@ export default function AppRoutesLayout() {
       <Stack.Screen name="auth/find-id" options={{ title: '아이디 찾기' }} />
       <Stack.Screen name="auth/find-password" options={{ title: '비밀번호 찾기' }} />
       <Stack.Screen name="auth/social-callback" options={{ title: '소셜 로그인' }} />
+      <Stack.Screen name="auth/account-link" options={{ title: 'Google 계정 연결' }} />
       <Stack.Screen name="auth/terms" options={{ title: '약관 확인' }} />
 
       <Stack.Screen name="level/test-survey" options={{ title: '레벨 테스트 설문' }} />

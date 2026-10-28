@@ -62,6 +62,11 @@ type PasswordResetRequest = {
   newPassword: string;
 };
 
+type GoogleAccountLinkRequest = {
+  linkTicket: string;
+  password: string;
+};
+
 export async function login(request: LoginRequest) {
   const response = await apiFetch<LoginResponse>('/auth/login', {
     method: 'POST',
@@ -133,6 +138,13 @@ export async function resetPassword(request: PasswordResetRequest) {
   await apiFetch<ApiResponse<null>>('/auth/password/reset', {
     method: 'POST',
     auth: false,
+    body: JSON.stringify(request),
+  });
+}
+
+export async function linkGoogleAccount(request: GoogleAccountLinkRequest) {
+  await apiFetch<ApiResponse<null>>('/auth/social/google/link', {
+    method: 'POST',
     body: JSON.stringify(request),
   });
 }

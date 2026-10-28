@@ -1,7 +1,7 @@
 import Text from '@/components/ui/AppText';
 import { saveAuthSession } from '@/lib/auth/session';
 import * as WebBrowser from 'expo-web-browser';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Alert, Platform, ToastAndroid, View } from 'react-native';
 
@@ -19,9 +19,11 @@ function showToast(message: string) {
 export default function SocialCallbackPage() {
   const router = useRouter();
   const hasHandledCallback = useRef(false);
-  const { accessToken, refreshToken } = useLocalSearchParams<{
+  const { accessToken, refreshToken, error, linkTicket } = useLocalSearchParams<{
     accessToken?: string;
     refreshToken?: string;
+    error?: string;
+    linkTicket?: string;
   }>();
 
   useEffect(() => {
@@ -29,6 +31,14 @@ export default function SocialCallbackPage() {
     hasHandledCallback.current = true;
 
     const completeSocialLogin = async () => {
+      if (error === 'ACCOUNT_LINK_REQUIRED' && typeof linkTicket === 'string' && linkTicket) {
+        router.replace({
+          pathname: '/(app)/auth/account-link',
+          params: { linkTicket },
+        } as unknown as Href);
+        return;
+      }
+
       if (typeof accessToken !== 'string' || typeof refreshToken !== 'string') {
         showToast('소셜 로그인 응답을 확인할 수 없습니다.');
         router.replace('/(app)/auth/login');
@@ -50,7 +60,7 @@ export default function SocialCallbackPage() {
     };
 
     void completeSocialLogin();
-  }, [accessToken, refreshToken, router]);
+  }, [accessToken, error, linkTicket, refreshToken, router]);
 
   return (
     <View className="flex-1 items-center justify-center bg-bg px-6">
