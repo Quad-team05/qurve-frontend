@@ -3,8 +3,7 @@ import TextInput from '@/components/ui/AppTextInput';
 import TopBar from '@/components/ui/TopBar';
 import { linkGoogleAccount, login } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
-import { getMyProfile, hasCompletedLevelTest } from '@/lib/api/user';
-import { clearAuthSession, clearNeedsLevelTest } from '@/lib/auth/session';
+import { clearAuthSession } from '@/lib/auth/session';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Platform, Pressable, ToastAndroid, View } from 'react-native';
@@ -48,15 +47,6 @@ export default function GoogleAccountLinkPage() {
       setIsSubmitting(true);
       await login({ loginId: loginId.trim(), password });
       await linkGoogleAccount({ linkTicket, password });
-
-      const profile = await getMyProfile();
-
-      if (!hasCompletedLevelTest(profile)) {
-        router.replace('/(app)/level/language-select');
-        return;
-      }
-
-      await clearNeedsLevelTest();
       router.replace('/(tabs)');
     } catch (error) {
       await clearAuthSession();

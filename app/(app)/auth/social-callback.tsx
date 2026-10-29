@@ -1,6 +1,5 @@
 import Text from '@/components/ui/AppText';
-import { getMyProfile, hasCompletedLevelTest } from '@/lib/api/user';
-import { clearAuthSession, clearNeedsLevelTest, saveAuthSession } from '@/lib/auth/session';
+import { clearAuthSession, saveAuthSession } from '@/lib/auth/session';
 import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -53,14 +52,6 @@ export default function SocialCallbackPage() {
           userDetails: {},
         });
 
-        const profile = await getMyProfile();
-
-        if (!hasCompletedLevelTest(profile)) {
-          router.replace('/(app)/level/language-select');
-          return;
-        }
-
-        await clearNeedsLevelTest();
         router.replace('/(tabs)');
       } catch {
         await clearAuthSession();

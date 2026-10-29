@@ -1,6 +1,7 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import type { ComponentType } from 'react';
 import { Image, Pressable, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ChatIcon from '@/assets/icons/chat.svg';
 import GraphIcon from '@/assets/icons/graph.svg';
@@ -22,6 +23,8 @@ const TAB_ITEMS: TabItem[] = [
 ];
 
 export default function NavigationBar({ state, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
+
   const renderIcon = (icon: TabItem['Icon'], isFocused: boolean) => {
     const iconOpacity = isFocused ? 1 : 0.4;
 
@@ -47,9 +50,9 @@ export default function NavigationBar({ state, navigation }: BottomTabBarProps) 
         borderTopWidth: 1,
         borderTopColor: '#E0D8C8',
         backgroundColor: '#EDE8DE',
-        paddingHorizontal: 40,
-        paddingTop: 24,
-        paddingBottom: 40,
+        paddingHorizontal: 32,
+        paddingTop: 12,
+        paddingBottom: Math.max(insets.bottom, 12),
       }}
     >
       <View className="flex-row items-end justify-between">
@@ -60,7 +63,7 @@ export default function NavigationBar({ state, navigation }: BottomTabBarProps) 
           return (
             <Pressable
               key={item.routeName}
-              className="flex-1 items-center justify-end"
+              className="min-h-[44px] flex-1 items-center justify-center"
               onPress={() => navigation.navigate(item.routeName)}
             >
               {renderIcon(item.Icon, isFocused)}

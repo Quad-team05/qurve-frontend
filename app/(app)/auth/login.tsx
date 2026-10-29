@@ -3,8 +3,7 @@ import Text from '@/components/ui/AppText';
 import TextInput from '@/components/ui/AppTextInput';
 import { login } from '@/lib/api/auth';
 import { API_BASE_URL, ApiError } from '@/lib/api/client';
-import { getMyProfile, hasCompletedLevelTest } from '@/lib/api/user';
-import { clearNeedsLevelTest } from '@/lib/auth/session';
+import { consumeNeedsLevelTest } from '@/lib/auth/session';
 import { loginWithGoogle } from '@/lib/auth/social-login';
 import { useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
@@ -57,14 +56,11 @@ export default function LoginPage() {
         password: trimmedPassword,
       });
 
-      const profile = await getMyProfile();
-
-      if (!hasCompletedLevelTest(profile)) {
+      if (await consumeNeedsLevelTest()) {
         router.replace('/(app)/level/language-select');
         return;
       }
 
-      await clearNeedsLevelTest();
       router.replace('/(tabs)');
     } catch (error) {
       if (
@@ -103,14 +99,6 @@ export default function LoginPage() {
         return;
       }
 
-      const profile = await getMyProfile();
-
-      if (!hasCompletedLevelTest(profile)) {
-        router.replace('/(app)/level/language-select');
-        return;
-      }
-
-      await clearNeedsLevelTest();
       router.replace('/(tabs)');
     } catch (error) {
       showToast(error instanceof ApiError ? error.message : '구글 로그인 중 문제가 발생했습니다.');

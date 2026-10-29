@@ -16,7 +16,7 @@ import {
   type TodayLearning,
 } from '@/lib/api/learning';
 import { getProblemAccuracy, type ProblemAccuracy } from '@/lib/api/problem';
-import { getMyProfile, type UserProfile } from '@/lib/api/user';
+import { getMyProfile, hasCompletedLevelTest, type UserProfile } from '@/lib/api/user';
 import { clearAuthSession, consumeNeedsLevelTest } from '@/lib/auth/session';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -165,6 +165,12 @@ export default function HomeScreen() {
       try {
         setIsProfileLoading(true);
         const result = await getMyProfile();
+
+        if (!hasCompletedLevelTest(result)) {
+          router.replace('/(app)/level/language-select');
+          return;
+        }
+
         setProfile(result);
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
