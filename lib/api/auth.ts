@@ -149,6 +149,12 @@ export async function linkGoogleAccount(request: GoogleAccountLinkRequest) {
   });
 }
 
+export async function logout() {
+  await apiFetch<ApiResponse<null>>('/auth/logout', {
+    method: 'POST',
+  });
+}
+
 export async function withdraw() {
   await apiFetch<ApiResponse<null>>('/auth/withdraw', {
     method: 'DELETE',

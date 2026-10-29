@@ -1,5 +1,6 @@
 import Text from '@/components/ui/AppText';
-import { saveAuthSession } from '@/lib/auth/session';
+import { getMyProfile, hasCompletedLevelTest } from '@/lib/api/user';
+import { clearAuthSession, clearNeedsLevelTest, saveAuthSession } from '@/lib/auth/session';
 import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -52,8 +53,17 @@ export default function SocialCallbackPage() {
           userDetails: {},
         });
 
+        const profile = await getMyProfile();
+
+        if (!hasCompletedLevelTest(profile)) {
+          router.replace('/(app)/level/language-select');
+          return;
+        }
+
+        await clearNeedsLevelTest();
         router.replace('/(tabs)');
       } catch {
+        await clearAuthSession();
         showToast('로그인 정보를 저장하지 못했습니다. 다시 시도해주세요.');
         router.replace('/(app)/auth/login');
       }

@@ -1,6 +1,6 @@
 import Text from '@/components/ui/AppText';
 import TopBar from '@/components/ui/TopBar';
-import { withdraw } from '@/lib/api/auth';
+import { logout, withdraw } from '@/lib/api/auth';
 import {
   getMyChallenges,
   normalizeChallengeManagement,
@@ -38,6 +38,7 @@ export default function MyPage() {
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [challengeManagement, setChallengeManagement] = useState<ChallengeManagement | null>(null);
@@ -106,6 +107,21 @@ export default function MyPage() {
       }
     } finally {
       setIsWithdrawing(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    try {
+      setIsLoggingOut(true);
+      await logout();
+    } catch {
+      // 서버 요청이 실패해도 이 기기의 인증정보는 반드시 제거한다.
+    } finally {
+      await clearAuthSession();
+      router.replace('/(app)/auth/login');
+      setIsLoggingOut(false);
     }
   };
 
@@ -222,11 +238,14 @@ export default function MyPage() {
 
           <Pressable
             className="flex-row items-center justify-between border-b border-border px-4 py-4"
-            onPress={() => router.replace('/(app)/auth/login')}
+            disabled={isLoggingOut}
+            onPress={() => void handleLogout()}
           >
             <View className="flex-row items-center gap-x-3">
               <Text style={{ fontSize: 18 }}>🔒</Text>
-              <Text className="font-regular text-sm text-btn-dark">로그아웃</Text>
+              <Text className="font-regular text-sm text-btn-dark">
+                {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
+              </Text>
             </View>
             <Text className="font-regular text-sm text-text-brown">›</Text>
           </Pressable>

@@ -1,4 +1,9 @@
-import { getAccessToken } from '@/lib/auth/session';
+import {
+  clearAuthSession,
+  getAccessToken,
+  getRefreshToken,
+  saveAuthTokens,
+} from '@/lib/auth/session';
 import { Platform } from 'react-native';
 
 const DEFAULT_API_BASE_URL = 'https://qurve.duckdns.org';
@@ -22,6 +27,15 @@ type ErrorPayload = {
   message?: string;
   [key: string]: unknown;
 };
+
+type TokenReissueResponse = {
+  data?: {
+    accessToken?: string;
+    refreshToken?: string;
+  };
+};
+
+let tokenRefreshPromise: Promise<string | null> | null = null;
 
 export class ApiError extends Error {
   code?: string;
@@ -98,22 +112,68 @@ function hasErrorCode(payload: unknown): payload is ErrorPayload {
   return success === false;
 }
 
+async function requestNewAccessToken() {
+  const refreshToken = await getRefreshToken();
+
+  if (!refreshToken) return null;
+
+  try {
+    const response = await fetch(buildApiUrl('/auth/reissue'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    const payload = (await parseResponse(response)) as TokenReissueResponse | null;
+    const accessToken = payload?.data?.accessToken;
+    const nextRefreshToken = payload?.data?.refreshToken ?? refreshToken;
+
+    if (!response.ok || hasErrorCode(payload) || typeof accessToken !== 'string') {
+      if (response.status === 401 || response.status === 403) {
+        await clearAuthSession();
+      }
+
+      return null;
+    }
+
+    await saveAuthTokens(accessToken, nextRefreshToken);
+    return accessToken;
+  } catch {
+    return null;
+  }
+}
+
+async function refreshAccessToken() {
+  if (!tokenRefreshPromise) {
+    tokenRefreshPromise = requestNewAccessToken().finally(() => {
+      tokenRefreshPromise = null;
+    });
+  }
+
+  return tokenRefreshPromise;
+}
+
+function withAuthorization(headers: Record<string, string>, accessToken: string) {
+  return {
+    ...headers,
+    Authorization: accessToken.startsWith('Bearer ') ? accessToken : `Bearer ${accessToken}`,
+  };
+}
+
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
   const { auth = true, headers, ...fetchOptions } = options;
-  const normalizedHeaders = normalizeHeaders(headers);
+  let normalizedHeaders = normalizeHeaders(headers);
   const url = buildApiUrl(path);
+  let requestAccessToken: string | null = null;
 
   if (fetchOptions.body && !normalizedHeaders['Content-Type']) {
     normalizedHeaders['Content-Type'] = 'application/json';
   }
 
   if (auth) {
-    const accessToken = await getAccessToken();
+    requestAccessToken = await getAccessToken();
 
-    if (accessToken) {
-      normalizedHeaders.Authorization = accessToken.startsWith('Bearer ')
-        ? accessToken
-        : `Bearer ${accessToken}`;
+    if (requestAccessToken) {
+      normalizedHeaders = withAuthorization(normalizedHeaders, requestAccessToken);
     }
   }
 
@@ -135,6 +195,36 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       },
       url,
     );
+  }
+
+  if (auth && response.status === 401) {
+    const latestAccessToken = await getAccessToken();
+    const nextAccessToken =
+      latestAccessToken && latestAccessToken !== requestAccessToken
+        ? latestAccessToken
+        : await refreshAccessToken();
+
+    if (nextAccessToken) {
+      normalizedHeaders = withAuthorization(normalizedHeaders, nextAccessToken);
+
+      try {
+        response = await fetch(url, {
+          ...fetchOptions,
+          headers: normalizedHeaders,
+        });
+      } catch {
+        throw new ApiError(
+          '서버에 연결할 수 없습니다.',
+          0,
+          {
+            code: 'NETWORK_ERROR',
+            message: '서버에 연결할 수 없습니다.',
+            url,
+          },
+          url,
+        );
+      }
+    }
   }
 
   const payload = await parseResponse(response);

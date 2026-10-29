@@ -57,6 +57,13 @@ export async function saveAuthSession(session: AuthSession) {
   ]);
 }
 
+export async function saveAuthTokens(accessToken: string, refreshToken: string) {
+  await Promise.all([
+    setItem(ACCESS_TOKEN_KEY, accessToken),
+    setItem(REFRESH_TOKEN_KEY, refreshToken),
+  ]);
+}
+
 export async function getAccessToken() {
   return getItem(ACCESS_TOKEN_KEY);
 }
