@@ -14,6 +14,7 @@ import {
 } from '@/lib/api/problem';
 import { ApiError } from '@/lib/api/client';
 import { clearAuthSession } from '@/lib/auth/session';
+import { getProfileCurrentLevel } from '@/lib/user/profile-level';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -250,6 +251,9 @@ export default function ProgressTab() {
       label: day.dayLabel,
       val: day.accuracyRate,
     })) ?? [];
+  const learningLanguageLabel = profile?.learningLanguage === 'ENGLISH' ? '영어' : '일본어';
+  const profileLevel = profile ? getProfileCurrentLevel(profile) : null;
+  const profileLevelLabel = profileLevel ? `Level ${profileLevel}` : '레벨 미설정';
 
   useEffect(() => {
     if (activeTab !== 1 || monthlyStudyTimes.length === 0) return;
@@ -266,7 +270,11 @@ export default function ProgressTab() {
   return (
     <SafeAreaView className="flex-1 bg-bg">
       <View className="border-b border-border bg-bg px-4 pb-3 pt-2">
-        <Text className="font-regular text-xs text-text-brown">Lv.1 일본어 고수 꿈나무 🌱</Text>
+        <Text className="font-regular text-xs text-text-brown">
+          {isLoading
+            ? '학습 레벨을 불러오는 중...'
+            : `${learningLanguageLabel} · ${profileLevelLabel}`}
+        </Text>
         <Text className="font-semiBold mb-2.5 text-xl text-btn-dark">
           {isLoading ? '불러오는 중...' : `${profile?.name ?? '-'} 님`}
         </Text>

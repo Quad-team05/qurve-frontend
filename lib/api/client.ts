@@ -7,6 +7,7 @@ import {
 import { Platform } from 'react-native';
 
 const DEFAULT_API_BASE_URL = 'https://qurve.duckdns.org';
+const REQUEST_TIMEOUT_MS = 12_000;
 
 function resolveApiBaseUrl() {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL;
@@ -112,13 +113,46 @@ function hasErrorCode(payload: unknown): payload is ErrorPayload {
   return success === false;
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}) {
+  if (options.signal) return fetch(url, options);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function createConnectionError(error: unknown, url: string) {
+  const timedOut =
+    error instanceof Error &&
+    (error.name === 'AbortError' || error.message.toLowerCase().includes('aborted'));
+  const message = timedOut
+    ? '서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.'
+    : '서버에 연결할 수 없습니다.';
+
+  return new ApiError(
+    message,
+    0,
+    {
+      code: timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
+      message,
+      url,
+    },
+    url,
+  );
+}
+
 async function requestNewAccessToken() {
   const refreshToken = await getRefreshToken();
 
   if (!refreshToken) return null;
 
   try {
-    const response = await fetch(buildApiUrl('/auth/reissue'), {
+    const response = await fetchWithTimeout(buildApiUrl('/auth/reissue'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
@@ -180,21 +214,12 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   let response: Response;
 
   try {
-    response = await fetch(url, {
+    response = await fetchWithTimeout(url, {
       ...fetchOptions,
       headers: normalizedHeaders,
     });
-  } catch {
-    throw new ApiError(
-      '서버에 연결할 수 없습니다.',
-      0,
-      {
-        code: 'NETWORK_ERROR',
-        message: '서버에 연결할 수 없습니다.',
-        url,
-      },
-      url,
-    );
+  } catch (error) {
+    throw createConnectionError(error, url);
   }
 
   if (auth && response.status === 401) {
@@ -208,21 +233,12 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       normalizedHeaders = withAuthorization(normalizedHeaders, nextAccessToken);
 
       try {
-        response = await fetch(url, {
+        response = await fetchWithTimeout(url, {
           ...fetchOptions,
           headers: normalizedHeaders,
         });
-      } catch {
-        throw new ApiError(
-          '서버에 연결할 수 없습니다.',
-          0,
-          {
-            code: 'NETWORK_ERROR',
-            message: '서버에 연결할 수 없습니다.',
-            url,
-          },
-          url,
-        );
+      } catch (error) {
+        throw createConnectionError(error, url);
       }
     }
   }

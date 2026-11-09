@@ -9,9 +9,17 @@ import {
   type LevelTestQuestion,
 } from '@/lib/api/level';
 import { clearAuthSession, clearNeedsLevelTest } from '@/lib/auth/session';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, ToastAndroid, View } from 'react-native';
+import {
+  Alert,
+  BackHandler,
+  Platform,
+  Pressable,
+  ScrollView,
+  ToastAndroid,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const questionCardShadowStyle = {
@@ -132,6 +140,30 @@ export default function LevelTestPage() {
     void loadQuestions();
   }, [loadQuestions]);
 
+  const handleRequestExit = useCallback(() => {
+    if (isSubmitting) return;
+
+    Alert.alert('레벨 테스트를 종료할까요?', '지금까지 선택한 답변은 저장되지 않아요.', [
+      { text: '계속하기', style: 'cancel' },
+      {
+        text: '설문으로 돌아가기',
+        style: 'destructive',
+        onPress: () => router.replace('/(app)/level/test-survey'),
+      },
+    ]);
+  }, [isSubmitting, router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleRequestExit();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [handleRequestExit]),
+  );
+
   const currentQuestion = questions[currentQuestionIndex];
   const selectedOptionId = selectedByQuestion[currentQuestionIndex] ?? null;
   const totalQuestionCount = questions.length;
@@ -212,7 +244,7 @@ export default function LevelTestPage() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
-      <TopBar title="레벨 테스트" />
+      <TopBar title="레벨 테스트" onBackPress={handleRequestExit} />
 
       <View className="flex-1 px-4 pt-3">
         <View className="mb-3">
@@ -260,13 +292,17 @@ export default function LevelTestPage() {
             >
               <View className="mx-auto h-[10px] w-[50px] rounded-[1px] bg-[#F9C8D8]" />
               <View
-                className="mb-4 rounded-sm border border-border bg-white px-4 pb-4 pt-5"
+                className="mb-4 w-full overflow-hidden rounded-sm border border-border bg-white px-4 pb-4 pt-5"
                 style={questionCardShadowStyle}
               >
                 <Text className="font-bold text-sm text-[#A09080]">
                   Q{currentQuestionIndex + 1}.
                 </Text>
-                <Text className="mt-2 font-regular text-lg text-black">
+                <Text
+                  className="mt-2 w-full font-regular text-lg text-black"
+                  style={{ flexShrink: 1 }}
+                  textBreakStrategy="simple"
+                >
                   {currentQuestion.questionText}
                 </Text>
                 <Text className="mb-6 mt-2 font-regular text-xs text-[#A09080]">
@@ -280,9 +316,12 @@ export default function LevelTestPage() {
                       key={`q${currentQuestion.questionId}-${option.optionId}`}
                       onPress={() => handleSelectOption(option.optionId)}
                       className={`mb-3 rounded-sm border px-[14px] py-4 ${selected ? 'border-[#C8E0D6] bg-[#F2F9EE]' : 'border-border bg-white'}`}
+                      style={{ width: '100%' }}
                     >
                       <Text
-                        className={`text-sm font-semibold ${selected ? 'text-gray' : 'text-[#2A2018]'}`}
+                        className={`w-full text-sm font-semibold ${selected ? 'text-gray' : 'text-[#2A2018]'}`}
+                        style={{ flexShrink: 1 }}
+                        textBreakStrategy="simple"
                       >
                         {option.optionId}. {option.text}
                       </Text>

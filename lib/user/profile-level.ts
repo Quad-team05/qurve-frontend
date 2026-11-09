@@ -11,14 +11,19 @@ function isAssignedLevel(level: number | null | undefined): level is number {
 }
 
 export function getProfileCurrentLevel(profile: LevelProfile): number | null {
-  if (isAssignedLevel(profile.currentLevel)) return profile.currentLevel;
-
   const languageLevel =
     profile.learningLanguage === 'ENGLISH'
       ? profile.currentLevelEnglish
       : profile.currentLevelJapanese;
 
-  return isAssignedLevel(languageLevel) ? languageLevel : null;
+  if (isAssignedLevel(languageLevel)) return languageLevel;
+
+  const hasLanguageSpecificLevel =
+    profile.currentLevelEnglish !== undefined || profile.currentLevelJapanese !== undefined;
+
+  if (hasLanguageSpecificLevel) return null;
+
+  return isAssignedLevel(profile.currentLevel) ? profile.currentLevel : null;
 }
 
 export function hasCompletedLevelTest(profile: LevelProfile): boolean {

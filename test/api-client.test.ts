@@ -87,4 +87,22 @@ describe('apiFetch token reissue', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(session.getRefreshToken).not.toHaveBeenCalled();
   });
+
+  it('returns a clear timeout error when the server does not respond', async () => {
+    const timeoutError = new Error('The operation was aborted');
+    timeoutError.name = 'AbortError';
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(timeoutError));
+
+    await expect(
+      apiFetch('/auth/login', {
+        method: 'POST',
+        auth: false,
+        body: JSON.stringify({ loginId: 'user', password: 'password' }),
+      }),
+    ).rejects.toMatchObject({
+      status: 0,
+      code: 'REQUEST_TIMEOUT',
+      message: '서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.',
+    });
+  });
 });

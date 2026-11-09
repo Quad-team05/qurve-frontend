@@ -32,6 +32,29 @@ describe('level test completion', () => {
     expect(hasCompletedLevelTest(profile)).toBe(true);
   });
 
+  it('does not use a stale compatibility level from another language', () => {
+    const profile = createProfile({
+      learningLanguage: 'ENGLISH',
+      currentLevel: 2,
+      currentLevelEnglish: 4,
+      currentLevelJapanese: 2,
+    });
+
+    expect(getProfileCurrentLevel(profile)).toBe(4);
+  });
+
+  it('requires the selected language level when language-specific fields exist', () => {
+    const profile = createProfile({
+      learningLanguage: 'ENGLISH',
+      currentLevel: 2,
+      currentLevelEnglish: null,
+      currentLevelJapanese: 2,
+    });
+
+    expect(getProfileCurrentLevel(profile)).toBeNull();
+    expect(hasCompletedLevelTest(profile)).toBe(false);
+  });
+
   it('recognizes an assigned learning stage when the compatibility level is absent', () => {
     const profile = createProfile({ learningStage: 'JLPT_N3' });
 
