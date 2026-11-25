@@ -1,105 +1,28 @@
+<div align="center">
+  <img src="./assets/images/logo.png" width="112" height="112" alt="Qurve 로고" />
+  <h1>Qurve</h1>
+  <p>내 수준에서 시작하는 영어·일본어 학습 앱</p>
+</div>
 
+## 프로젝트 소개
 
-# Qurve Frontend
+Qurve는 레벨 테스트로 현재 수준을 확인하고, 목표에 맞는 학습을 이어가는 모바일 앱입니다. 시험 대비(JLPT·TOEIC)와 실생활 과정 중 원하는 목표를 선택하고, 문제 풀이부터 오답 복습과 학습 기록 확인까지 한곳에서 할 수 있습니다.
 
-Expo 기반 React Native 프론트엔드 프로젝트입니다.
+## 핵심 기능
 
-## 빠른 시작
+| 기능         | 할 수 있는 일                                                                      |
+| ------------ | ---------------------------------------------------------------------------------- |
+| 맞춤 학습    | 레벨 테스트로 수준을 진단하고, 선택한 언어와 목표에 맞는 문제와 단어를 학습합니다. |
+| 오답 복습    | 틀린 문제 중 북마크한 항목을 날짜별로 찾아 정답과 해설을 다시 확인합니다.          |
+| 학습 분석    | 학습 시간, 정답률, 출석 기록을 확인하고 챌린지에 참여합니다.                       |
+| AI 학습 코치 | 현재 학습 중인 언어의 단어나 표현을 질문하고 설명을 받습니다.                      |
 
-### 1) 요구 버전
+## 기술 스택
 
-- Node.js: **20 LTS** (`.nvmrc` 참고)
-- npm: 10+
-- Java: **JDK 17**
-- Android Studio + Android SDK + Emulator
-
-### 2) 설치
-
-```bash
-npm install
-```
-
-### 3) 실행
-
-```bash
-npx expo start
-```
-
-실행 후 단축키:
-
-- `a`: Android
-- `i`: iOS (macOS)
-- `w`: Web
-
-## 권장 개발 환경
-
-- IDE: VS Code (권장) 또는 Android Studio
-- 버전 관리: GitHub
-- 에뮬레이터: Android Studio Emulator
-
-### VS Code 권장 확장
-
-- `expo.vscode-expo-tools`
-
-## 프로젝트 스크립트
-
-```bash
-npm run lint          # ESLint
-npm run typecheck     # TypeScript 타입 검사
-npm run test          # Vitest
-npm run ci            # lint + typecheck + test
-npm run format        # Prettier 포맷
-npm run format:check  # 포맷 검사
-```
-
-## 협업 규칙 요약
-
-- 커밋 전 `husky + lint-staged`가 변경 파일 자동 검사/포맷
-- PR/`main` push 시 GitHub Actions CI가 `lint/typecheck/test` 실행
-
-## 환경 변수
-
-- 예시 파일: `.env.example`
-- 민감 정보는 커밋 금지 (`.env`는 Git 제외)
-- 클라이언트 노출 변수는 `EXPO_PUBLIC_` prefix 사용
-
-## 디렉토리 구조 (요약)
-
-```text
-app/           # 라우트/화면
-components/    # 공통 UI
-hooks/         # 커스텀 훅
-lib/           # 유틸/비즈니스 로직
-test/          # 테스트
-.github/       # CI, PR/이슈 템플릿
-```
-
-## Android 환경 변수 (macOS / Linux)
-
-```bash
-export ANDROID_HOME=$HOME/Library/Android/sdk
-export PATH=$PATH:$ANDROID_HOME/emulator
-export PATH=$PATH:$ANDROID_HOME/platform-tools
-```
-
-반영:
-
-```bash
-source ~/.zshrc
-```
-
-## 문제 해결
-
-### Node 버전 이슈
-
-- Expo 실행 에러가 나면 Node 버전을 먼저 확인하세요.
-- `node -v`가 20이 아니면 20으로 전환 후 재실행하세요.
-
-### Java 버전 이슈
-
-- Android 빌드 문제 시 `java -version` 확인
-- JDK 17 사용 권장
-
----
-
-추가 협업 가이드는 [CONTRIBUTING.md](./CONTRIBUTING.md) 참고.
+| 구분             | 기술                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 앱 개발          | ![Expo SDK 54](https://img.shields.io/badge/Expo_SDK_54-000020?style=flat-square&logo=expo&logoColor=white) ![React Native 0.81](https://img.shields.io/badge/React_Native_0.81-61DAFB?style=flat-square&logo=react&logoColor=20232A) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)                                                                                                                          |
+| 화면 구성        | ![Expo Router](https://img.shields.io/badge/Expo_Router-000020?style=flat-square&logo=expo&logoColor=white) ![NativeWind](https://img.shields.io/badge/NativeWind-06B6D4?style=flat-square) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)                                                                                                                                                               |
+| API·인증         | ![Spring Boot REST API](https://img.shields.io/badge/Spring_Boot_REST_API-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![JWT](https://img.shields.io/badge/JWT-000000?style=flat-square&logo=jsonwebtokens&logoColor=white) ![Google OAuth](https://img.shields.io/badge/Google_OAuth-4285F4?style=flat-square&logo=google&logoColor=white) ![Expo SecureStore](https://img.shields.io/badge/Expo_SecureStore-000020?style=flat-square&logo=expo&logoColor=white) |
+| 테스트·코드 품질 | ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=flat-square&logo=vitest&logoColor=white) ![ESLint](https://img.shields.io/badge/ESLint-4B32C3?style=flat-square&logo=eslint&logoColor=white) ![Prettier](https://img.shields.io/badge/Prettier-F7B93E?style=flat-square&logo=prettier&logoColor=20232A)                                                                                                                                                             |
+| 빌드·자동화      | ![EAS Build](https://img.shields.io/badge/EAS_Build-000020?style=flat-square&logo=expo&logoColor=white) ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)                                                                                                                                                                                                                                             |
