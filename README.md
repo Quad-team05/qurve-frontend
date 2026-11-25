@@ -1,243 +1,28 @@
-# Qurve app Frontend
-
-이 프로젝트는 [`create-expo-app`](https://www.npmjs.com/package/create-expo-app)으로 생성된 [Expo](https://expo.dev) 프로젝트입니다.
-
-## 시작하기
-
-1. 의존성 설치
-
-```bash
-npm install
-```
-
-2. 앱 실행
-
-```bash
-npx expo start
-```
-
-실행 후 출력되는 옵션을 통해 다음 환경에서 앱을 열 수 있습니다.
-
-- 개발 빌드
-- Android 에뮬레이터
-- iOS 시뮬레이터
-- Expo Go, Expo로 앱 개발을 간단히 체험해볼 수 있는 제한된 샌드박스 환경
-
-개발을 시작하려면 `app` 디렉토리 안의 파일을 수정하면 됩니다. 이 프로젝트는 파일 기반 라우팅을 사용합니다.
-
-## 팀 협업 기본 스크립트
-
-```bash
-npm run lint
-npm run typecheck
-npm run test
-npm run ci
-```
-
-- 커밋 시 `husky + lint-staged`가 변경 파일에 대해 `prettier`와 `eslint`를 자동 실행합니다.
-- CI는 PR/`main` push 시 lint, typecheck, test를 자동 검증합니다.
-
-## 개발 환경 세팅
-
-### 1. 필수 설치 항목
-
-프로젝트 실행 및 개발을 위해 아래 항목들이 필요합니다.
-
-- Node.js LTS
-- npm
-- Android Studio
-- Android SDK
-- Android Emulator
-- VS Code 또는 Android Studio
-- Git
-
-### 2. Node.js 설치 확인
-
-터미널에서 아래 명령어를 입력하여 Node.js와 npm이 정상 설치되었는지 확인합니다.
-
-```bash
-node -v
-npm -v
-```
-
-### 3. Android Studio 및 Android SDK 설치
-
-Android 에뮬레이터를 사용하기 위해 Android Studio를 설치합니다. 설치 후 아래 항목이 포함되어 있는지 확인합니다.
-
-- Android SDK Platform
-- Android SDK Platform-Tools
-- Android Emulator
-- Android SDK Build-Tools
-
-### 4. 환경변수 설정
-
-Android SDK 경로가 정상적으로 잡혀 있어야 합니다.
-
-#### macOS / Linux
-
-셸 설정 파일(`~/.zshrc`, `~/.bashrc` 등)에 아래 내용을 추가합니다.
-
-```bash
-export ANDROID_HOME=$HOME/Library/Android/sdk
-export PATH=$PATH:$ANDROID_HOME/emulator
-export PATH=$PATH:$ANDROID_HOME/platform-tools
-```
-
-설정 후 아래 명령어로 반영합니다.
-
-```bash
-source ~/.zshrc
-```
-
-#### Windows
-
-시스템 환경 변수에 아래 항목을 추가합니다.
-
-- 변수 이름: `ANDROID_HOME`
-- 변수 값: Android SDK 설치 경로
-  예: `C:\Users\사용자명\AppData\Local\Android\Sdk`
-
-`Path` 항목에도 아래 경로를 추가합니다.
-
-```text
-%ANDROID_HOME%\platform-tools
-%ANDROID_HOME%\emulator
-```
-
-### 5. 환경변수 확인
-
-터미널 또는 명령 프롬프트에서 아래 명령어를 실행하여 정상 반영 여부를 확인합니다.
-
-```bash
-echo $ANDROID_HOME
-adb --version
-emulator -list-avds
-```
-
-Windows PowerShell에서는 아래처럼 확인할 수 있습니다.
-
-```powershell
-echo $env:ANDROID_HOME
-adb --version
-emulator -list-avds
-```
-
-### 6. Android Emulator 실행
-
-생성된 에뮬레이터가 있다면 아래 명령어로 실행할 수 있습니다.
-
-```bash
-emulator -avd 에뮬레이터이름
-```
-
-예시:
-
-```bash
-emulator -avd Medium_Phone
-```
-
-에뮬레이터 실행 후 Expo 프로젝트를 실행하고 `a` 키를 입력하면 Android 환경에서 앱을 확인할 수 있습니다.
-
-## 권장 개발 도구
-
-### 코드 편집
-
-- VS Code
-- Android Studio
-
-### 안드로이드 실행 환경
-
-- Android Studio Emulator
-
-### 버전 관리
-
-- GitHub
-
-## 프로젝트 세팅 순서
-
-### 1. 프로젝트 생성
-
-원하는 위치에서 Expo 프로젝트를 생성합니다.
-
-```bash
-npx create-expo-app qurve-frontend
-```
-
-또는 상위 폴더를 만든 뒤 그 안에서 생성할 수도 있습니다.
-
-```bash
-mkdir qurve-app
-cd qurve-app
-npx create-expo-app qurve-frontend
-```
-
-### 2. 프로젝트 폴더로 이동
-
-```bash
-cd qurve-frontend
-```
-
-### 3. 의존성 설치
-
-```bash
-npm install
-```
-
-### 4. Expo 개발 서버 실행
-
-```bash
-npx expo start
-```
-
-### 5. Android 실행
-
-- Android Emulator를 먼저 실행
-- Expo 실행 후 터미널에서 `a` 입력
-- 또는 Expo 화면에서 Android 실행 선택
-
-## GitHub 연동
-
-원격 저장소를 이미 만들어둔 경우 아래 순서로 연결합니다.
-
-```bash
-git init
-git remote add origin 저장소주소
-git add .
-git commit -m "chore: initialize expo project"
-git branch -M main
-git push -u origin main
-```
-
-만약 원격 저장소에 README만 있는 상태라면, 상황에 따라 pull 후 병합하거나 force push가 필요할 수 있습니다.
-
-## 추가 라이브러리 설치 예시
-
-프로젝트 진행에 따라 아래 라이브러리를 추가로 사용할 수 있습니다.
-
-- `axios` : 백엔드 API 통신
-- `nativewind` : Tailwind 스타일링
-- `react-native-chart-kit` : 학습 통계 그래프 시각화
-- `react-native-svg` : 차트 관련 의존성
-- `@tanstack/react-query` : 서버 상태 관리
-- `zustand` : 전역 상태 관리
-- `expo-secure-store` : 토큰 저장
-- `expo-notifications` : 알림 기능
-
-예시 설치 명령어:
-
-```bash
-npm install axios
-npm install nativewind tailwindcss
-npm install react-native-chart-kit react-native-svg
-npm install @tanstack/react-query
-npm install zustand
-npx expo install expo-secure-store expo-notifications
-```
-
-## 주의 사항
-
-- `.env` 파일은 Git에 올리지 않습니다.
-- `node_modules`는 Git에 포함하지 않습니다.
-- 민감한 API 키는 프론트엔드에 직접 넣지 않고 백엔드에서 관리하는 것을 권장합니다.
-- Expo 프로젝트에서 Tailwind 스타일링은 일반 웹 방식 대신 `NativeWind`를 사용합니다.
-- 프로젝트 생성은 Expo로 하고, Android Studio는 에뮬레이터 및 SDK 관리 용도로 사용하는 방식이 일반적입니다.
+<div align="center">
+  <img src="./assets/images/logo.png" width="112" height="112" alt="Qurve 로고" />
+  <h1>Qurve</h1>
+  <p>내 수준에서 시작하는 영어·일본어 학습 앱</p>
+</div>
+
+## 프로젝트 소개
+
+Qurve는 레벨 테스트로 현재 수준을 확인하고, 목표에 맞는 학습을 이어가는 모바일 앱입니다. 시험 대비(JLPT·TOEIC)와 실생활 과정 중 원하는 목표를 선택하고, 문제 풀이부터 오답 복습과 학습 기록 확인까지 한곳에서 할 수 있습니다.
+
+## 핵심 기능
+
+| 기능         | 할 수 있는 일                                                                      |
+| ------------ | ---------------------------------------------------------------------------------- |
+| 맞춤 학습    | 레벨 테스트로 수준을 진단하고, 선택한 언어와 목표에 맞는 문제와 단어를 학습합니다. |
+| 오답 복습    | 틀린 문제 중 북마크한 항목을 날짜별로 찾아 정답과 해설을 다시 확인합니다.          |
+| 학습 분석    | 학습 시간, 정답률, 출석 기록을 확인하고 챌린지에 참여합니다.                       |
+| AI 학습 코치 | 현재 학습 중인 언어의 단어나 표현을 질문하고 설명을 받습니다.                      |
+
+## 기술 스택
+
+| 구분             | 기술                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 앱 개발          | ![Expo SDK 54](https://img.shields.io/badge/Expo_SDK_54-000020?style=flat-square&logo=expo&logoColor=white) ![React Native 0.81](https://img.shields.io/badge/React_Native_0.81-61DAFB?style=flat-square&logo=react&logoColor=20232A) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)                                                                                                                          |
+| 화면 구성        | ![Expo Router](https://img.shields.io/badge/Expo_Router-000020?style=flat-square&logo=expo&logoColor=white) ![NativeWind](https://img.shields.io/badge/NativeWind-06B6D4?style=flat-square) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)                                                                                                                                                               |
+| API·인증         | ![Spring Boot REST API](https://img.shields.io/badge/Spring_Boot_REST_API-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![JWT](https://img.shields.io/badge/JWT-000000?style=flat-square&logo=jsonwebtokens&logoColor=white) ![Google OAuth](https://img.shields.io/badge/Google_OAuth-4285F4?style=flat-square&logo=google&logoColor=white) ![Expo SecureStore](https://img.shields.io/badge/Expo_SecureStore-000020?style=flat-square&logo=expo&logoColor=white) |
+| 테스트·코드 품질 | ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=flat-square&logo=vitest&logoColor=white) ![ESLint](https://img.shields.io/badge/ESLint-4B32C3?style=flat-square&logo=eslint&logoColor=white) ![Prettier](https://img.shields.io/badge/Prettier-F7B93E?style=flat-square&logo=prettier&logoColor=20232A)                                                                                                                                                             |
+| 빌드·자동화      | ![EAS Build](https://img.shields.io/badge/EAS_Build-000020?style=flat-square&logo=expo&logoColor=white) ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)                                                                                                                                                                                                                                             |
